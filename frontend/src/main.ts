@@ -1,4 +1,5 @@
 import './app.css'
+import './lib/styles/carbonCalculator.css'
 import App from './App.svelte'
 
 const app = new App({

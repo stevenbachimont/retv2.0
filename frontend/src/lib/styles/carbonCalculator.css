@@ -113,6 +113,12 @@
     margin-top: 1.5rem;
 }
 
+.total-card-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 .reset-button {
     color: #dc2626;
     background: none;

@@ -1,6 +1,5 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import '../styles/carbonCalculator.css';
     
     interface CarbonData {
         Transports: {
@@ -47,7 +46,8 @@
         Transports: 0,
         Logement_electromenagers: 0,
         Alimentation: 0,
-        Vetements: 0
+        Vetements: 0,
+        Services_communs: 1500
     };
 
     $: totalGlobalEmissions = Object.values(categoryEmissions).reduce((sum, val) => sum + val, 0);
@@ -174,10 +174,71 @@
                                 Surface du logement (m²) :
                                 <input type="number" bind:value={userInputs.homeSize} class="form-input" min="1" placeholder="50" />
                             </label>
-                            <!-- ... autres champs du logement ... -->
+                            <label class="form-label">
+                                Consommation électrique annuelle (kWh) :
+                                <input type="number" bind:value={userInputs.electricityKwh} class="form-input" />
+                            </label>
+                            <label class="form-label">
+                                Consommation de gaz annuelle (kWh) :
+                                <input type="number" bind:value={userInputs.gasKwh} class="form-input" />
+                            </label>
+                            <label class="form-label">
+                                Type de logement :
+                                <select bind:value={userInputs.housingType} class="form-input">
+                                    <option value="apartment">Appartement</option>
+                                    <option value="house">Maison</option>
+                                </select>
+                            </label>
+                            <label class="form-label">
+                                Nombre d'appareils électroménagers :
+                                <input type="number" bind:value={userInputs.applianceCount} class="form-input" min="0" />
+                            </label>
+                            <label class="form-label">
+                                Nombre d'appareils électroniques :
+                                <input type="number" bind:value={userInputs.electronicCount} class="form-input" min="0" />
+                            </label>
                         {/if}
 
-                        <!-- ... autres catégories ... -->
+                        {#if selectedCategory === 'Alimentation'}
+                            <label class="form-label">
+                                Consommation annuelle de viande rouge (kg) :
+                                <input type="number" bind:value={userInputs.redMeatKg} class="form-input" min="0" />
+                            </label>
+                            <label class="form-label">
+                                Consommation annuelle de viande blanche (kg) :
+                                <input type="number" bind:value={userInputs.whiteMeatKg} class="form-input" min="0" />
+                            </label>
+                            <label class="form-label">
+                                Consommation annuelle de porc (kg) :
+                                <input type="number" bind:value={userInputs.porkKg} class="form-input" min="0" />
+                            </label>
+                            <label class="form-label">
+                                Achats en vrac :
+                                <select bind:value={userInputs.bulkPurchase} class="form-input">
+                                    <option value="none">Jamais</option>
+                                    <option value="partial">Parfois</option>
+                                    <option value="total">Toujours</option>
+                                </select>
+                            </label>
+                        {/if}
+
+                        {#if selectedCategory === 'Vetements'}
+                            <label class="form-label">
+                                Nombre de grands vêtements achetés par an :
+                                <input type="number" bind:value={userInputs.largeItems} class="form-input" min="0" />
+                            </label>
+                            <label class="form-label">
+                                Nombre de petits vêtements achetés par an :
+                                <input type="number" bind:value={userInputs.smallItems} class="form-input" min="0" />
+                            </label>
+                            <label class="form-label">
+                                Origine principale des vêtements :
+                                <select bind:value={userInputs.origin} class="form-input">
+                                    <option value="france">France</option>
+                                    <option value="autre">Autre pays</option>
+                                </select>
+                            </label>
+                        {/if}
                     </div>
 
                     <button class="calculate-button" on:click={calculateEmissions}>
@@ -189,10 +250,15 @@
                     <h3 class="title">Résumé des émissions</h3>
                     {#each Object.entries(categoryEmissions) as [category, emissions]}
                         <div class="result-card">
-                            <span>{category.replace('_', ' ')}</span>
+                            <span>
+                                {category.replace('_', ' ')}
+                                {#if category === 'Services_communs'}
+                                    <span class="info-text">(Services publics, infrastructures, etc.)</span>
+                                {/if}
+                            </span>
                             <div>
                                 <span>{emissions.toFixed(2)} kg CO2e</span>
-                                {#if emissions > 0}
+                                {#if emissions > 0 && category !== 'Services_communs'}
                                     <button class="reset-button" on:click={() => resetCategory(category as keyof CarbonData)}>
                                         ✕
                                     </button>
@@ -202,7 +268,7 @@
                     {/each}
 
                     <div class="total-card">
-                        <div class="flex justify-between items-center">
+                        <div class="total-card-content">
                             <span>Total Global</span>
                             <span>{totalGlobalEmissions.toFixed(2)} kg CO2e</span>
                         </div>
@@ -224,5 +290,17 @@
 
     .animate-fade-in {
         animation: fadeIn 0.3s ease-out forwards;
+    }
+
+    .calculator-container {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
+        padding: 2rem 1rem;
+    }
+
+    .info-text {
+        font-size: 0.8em;
+        color: #666;
+        font-style: italic;
     }
 </style> 
