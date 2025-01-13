@@ -1,12 +1,12 @@
-export const API_BASE_URL = 'http://localhost:8080'; 
+export const API_BASE_URL = 'http://localhost:8080';
 
 export const apiClient = {
-    async get(endpoint) {
+    async get(endpoint: string) {
         const response = await fetch(`${API_BASE_URL}${endpoint}`);
         return response.json();
     },
 
-    async post(endpoint, data) {
+    async post(endpoint: string, data: unknown) {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: 'POST',
             headers: {
@@ -16,6 +16,4 @@ export const apiClient = {
         });
         return response.json();
     },
-
-   
 }; 

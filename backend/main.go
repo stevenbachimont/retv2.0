@@ -1,6 +1,8 @@
 package main
 
 import (
+	"carbone-app/models"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -35,13 +37,33 @@ func calculateCarbon(c *gin.Context) {
 }
 
 func getCarbonFactors(c *gin.Context) {
-	// Facteurs d'émission de base
-	factors := []gin.H{
-		{"id": "voiture", "name": "Voiture", "factor": 0.2},
-		{"id": "train", "name": "Train", "factor": 0.02},
-		{"id": "avion", "name": "Avion", "factor": 0.285},
-		{"id": "viande_rouge", "name": "Viande Rouge", "factor": 60.0},
-	}
+	factors := models.CarbonFactors{}
+
+	// Initialisation des données
+	factors.Transports.Train = 0.014
+	factors.Transports.Flight = 0.285
+	factors.Transports.Car.Small = 0.1
+	factors.Transports.Car.Medium = 0.2
+	factors.Transports.Car.Big = 0.3
+
+	factors.LogementElectromenagers.Electricity = 0.4
+	factors.LogementElectromenagers.Gas = 0.2
+	factors.LogementElectromenagers.Apartment = 15
+	factors.LogementElectromenagers.House = 20
+	factors.LogementElectromenagers.Appliance = 0.5
+	factors.LogementElectromenagers.Electronic = 0.3
+
+	factors.Alimentation.RedMeat = 27
+	factors.Alimentation.WhiteMeat = 6.9
+	factors.Alimentation.Pork = 7.2
+	factors.Alimentation.BulkFoodPurchase.None = 1
+	factors.Alimentation.BulkFoodPurchase.Partial = 0.9
+	factors.Alimentation.BulkFoodPurchase.Total = 0.8
+
+	factors.Vetements.Large = 15
+	factors.Vetements.Small = 10
+	factors.Vetements.Madein.France = 1
+	factors.Vetements.Madein.Autre = 1.2
 
 	c.JSON(200, factors)
 }
