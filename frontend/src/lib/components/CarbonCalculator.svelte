@@ -610,5 +610,50 @@
         .logout-button:hover {
             background: #c82333;
         }
+
+        .form-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .input-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 0.5rem 0;
+        }
+
+        .form-label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-size: 0.9rem;
+            color: hsl(162, 10%, 20%);
+        }
+
+        .form-input, .category-select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid hsl(162, calc(30% * var(--color-intensity)), 75%);
+            border-radius: 0.25rem;
+            background: white;
+            color: hsl(162, 10%, 15%);
+            font-size: 0.9rem;
+        }
+
+        .calculate-button {
+            width: auto;
+            margin: 1rem auto;
+            padding: 0.5rem 2rem;
+            font-size: 1rem;
+        }
+
+        .category-select {
+            max-width: 300px;
+            margin: 0 auto;
+        }
     </style> 
 {/if} 
