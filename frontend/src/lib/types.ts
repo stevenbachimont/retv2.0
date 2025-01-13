@@ -10,4 +10,11 @@ export interface UserActivity {
     activityId: string;
     quantity: number;
     date: Date;
+}
+
+export type CarbonData = {
+    Transports: any;
+    Logement_electromenagers: any;
+    Alimentation: any;
+    Vetements: any;
 } 

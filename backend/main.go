@@ -10,9 +10,8 @@ import (
 func main() {
 	r := gin.Default()
 
-	// Configuration CORS plus permissive
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"*"} // Permet toutes les origines
+	config.AllowOrigins = []string{"*"}
 	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
 	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
 	config.AllowCredentials = true
@@ -30,16 +29,149 @@ func main() {
 }
 
 func calculateCarbon(c *gin.Context) {
-	// TODO: Implémenter le calcul
+	var input struct {
+		Category   string                 `json:"category"`
+		UserInputs map[string]interface{} `json:"userInputs"`
+	}
+
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid input data"})
+		return
+	}
+
+	factors := models.CarbonFactors{}
+
+	factors.Transports.Train = 0.014
+	factors.Transports.Flight = 0.285
+	factors.Transports.Car.Small = 0.1
+	factors.Transports.Car.Medium = 0.2
+	factors.Transports.Car.Big = 0.3
+
+	factors.LogementElectromenagers.Electricity = 0.4
+	factors.LogementElectromenagers.Gas = 0.2
+	factors.LogementElectromenagers.Apartment = 15
+	factors.LogementElectromenagers.House = 20
+	factors.LogementElectromenagers.Appliance = 0.5
+	factors.LogementElectromenagers.Electronic = 0.3
+
+	factors.Alimentation.RedMeat = 27
+	factors.Alimentation.WhiteMeat = 6.9
+	factors.Alimentation.Pork = 7.2
+	factors.Alimentation.BulkFoodPurchase.None = 1
+	factors.Alimentation.BulkFoodPurchase.Partial = 0.9
+	factors.Alimentation.BulkFoodPurchase.Total = 0.8
+
+	factors.Vetements.Large = 15
+	factors.Vetements.Small = 10
+	factors.Vetements.Madein.France = 1
+	factors.Vetements.Madein.Autre = 1.2
+
+	var result float64
+
+	switch input.Category {
+	case "Transports":
+		if trainKm, ok := input.UserInputs["trainKm"].(float64); ok {
+			result += trainKm * factors.Transports.Train
+		}
+		if flightKm, ok := input.UserInputs["flightKm"].(float64); ok {
+			result += flightKm * factors.Transports.Flight
+		}
+		if carKm, ok := input.UserInputs["carKm"].(float64); ok {
+			if carType, ok := input.UserInputs["carType"].(string); ok {
+				if occupants, ok := input.UserInputs["carOccupants"].(float64); ok && occupants > 0 {
+					switch carType {
+					case "small":
+						result += (carKm * factors.Transports.Car.Small) / occupants
+					case "medium":
+						result += (carKm * factors.Transports.Car.Medium) / occupants
+					case "big":
+						result += (carKm * factors.Transports.Car.Big) / occupants
+					}
+				}
+			}
+		}
+
+	case "Logement_electromenagers":
+		if electricityKwh, ok := input.UserInputs["electricityKwh"].(float64); ok {
+			if homeOccupants, ok := input.UserInputs["homeOccupants"].(float64); ok && homeOccupants > 0 {
+				result += (electricityKwh * factors.LogementElectromenagers.Electricity) / homeOccupants
+			}
+		}
+		if gasKwh, ok := input.UserInputs["gasKwh"].(float64); ok {
+			if homeOccupants, ok := input.UserInputs["homeOccupants"].(float64); ok && homeOccupants > 0 {
+				result += (gasKwh * factors.LogementElectromenagers.Gas) / homeOccupants
+			}
+		}
+		if housingType, ok := input.UserInputs["housingType"].(string); ok {
+			if homeSize, ok := input.UserInputs["homeSize"].(float64); ok {
+				if homeOccupants, ok := input.UserInputs["homeOccupants"].(float64); ok && homeOccupants > 0 {
+					switch housingType {
+					case "apartment":
+						result += (factors.LogementElectromenagers.Apartment * homeSize) / homeOccupants
+					case "house":
+						result += (factors.LogementElectromenagers.House * homeSize) / homeOccupants
+					}
+				}
+			}
+		}
+		if applianceCount, ok := input.UserInputs["applianceCount"].(float64); ok {
+			if homeOccupants, ok := input.UserInputs["homeOccupants"].(float64); ok && homeOccupants > 0 {
+				result += (applianceCount * factors.LogementElectromenagers.Appliance) / homeOccupants
+			}
+		}
+		if electronicCount, ok := input.UserInputs["electronicCount"].(float64); ok {
+			if homeOccupants, ok := input.UserInputs["homeOccupants"].(float64); ok && homeOccupants > 0 {
+				result += (electronicCount * factors.LogementElectromenagers.Electronic) / homeOccupants
+			}
+		}
+
+	case "Alimentation":
+		if redMeatKg, ok := input.UserInputs["redMeatKg"].(float64); ok {
+			result += redMeatKg * factors.Alimentation.RedMeat
+		}
+		if whiteMeatKg, ok := input.UserInputs["whiteMeatKg"].(float64); ok {
+			result += whiteMeatKg * factors.Alimentation.WhiteMeat
+		}
+		if porkKg, ok := input.UserInputs["porkKg"].(float64); ok {
+			result += porkKg * factors.Alimentation.Pork
+		}
+		if bulkPurchase, ok := input.UserInputs["bulkPurchase"].(string); ok {
+			switch bulkPurchase {
+			case "none":
+				result *= factors.Alimentation.BulkFoodPurchase.None
+			case "partial":
+				result *= factors.Alimentation.BulkFoodPurchase.Partial
+			case "total":
+				result *= factors.Alimentation.BulkFoodPurchase.Total
+			}
+		}
+
+	case "Vetements":
+		if largeItems, ok := input.UserInputs["largeItems"].(float64); ok {
+			result += largeItems * factors.Vetements.Large
+		}
+		if smallItems, ok := input.UserInputs["smallItems"].(float64); ok {
+			result += smallItems * factors.Vetements.Small
+		}
+		if origin, ok := input.UserInputs["origin"].(string); ok {
+			switch origin {
+			case "france":
+				result *= factors.Vetements.Madein.France
+			case "autre":
+				result *= factors.Vetements.Madein.Autre
+			}
+		}
+	}
+
 	c.JSON(200, gin.H{
-		"message": "Calcul en cours de développement",
+		"category": input.Category,
+		"result":   result,
 	})
 }
 
 func getCarbonFactors(c *gin.Context) {
 	factors := models.CarbonFactors{}
 
-	// Initialisation des données
 	factors.Transports.Train = 0.014
 	factors.Transports.Flight = 0.285
 	factors.Transports.Car.Small = 0.1

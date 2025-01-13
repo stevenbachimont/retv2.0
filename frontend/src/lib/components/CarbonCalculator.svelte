@@ -61,49 +61,26 @@
         }
     });
 
-    function calculateEmissions() {
-        if (!carbonData || !selectedCategory) return;
+    async function calculateEmissions() {
+        if (!selectedCategory) return;
 
-        let categoryTotal = 0;
-        const category = carbonData[selectedCategory];
+        try {
+            const response = await fetch('http://localhost:8080/api/calculate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    category: selectedCategory,
+                    userInputs: userInputs,
+                }),
+            });
 
-        switch (selectedCategory) {
-            case 'Transports':
-                if (userInputs.trainKm) categoryTotal += Number(userInputs.trainKm) * category.train;
-                if (userInputs.flightKm) categoryTotal += Number(userInputs.flightKm) * category.flight;
-                if (userInputs.carKm && userInputs.carType) {
-                    const occupants = Number(userInputs.carOccupants) || 1;
-                    categoryTotal += (Number(userInputs.carKm) * category.car[userInputs.carType as keyof typeof category.car]) / occupants;
-                }
-                break;
-
-            case 'Logement_electromenagers':
-                const homeOccupants = Number(userInputs.homeOccupants) || 1;
-                const homeSize = Number(userInputs.homeSize) || 0;
-                if (userInputs.electricityKwh) categoryTotal += (Number(userInputs.electricityKwh) * category.electricity) / homeOccupants;
-                if (userInputs.gasKwh) categoryTotal += (Number(userInputs.gasKwh) * category.gas) / homeOccupants;
-                if (userInputs.housingType === 'apartment') categoryTotal += (category.apartment * homeSize) / homeOccupants;
-                if (userInputs.housingType === 'house') categoryTotal += (category.house * homeSize) / homeOccupants;
-                if (userInputs.applianceCount) categoryTotal += (Number(userInputs.applianceCount) * category.appliance) / homeOccupants;
-                if (userInputs.electronicCount) categoryTotal += (Number(userInputs.electronicCount) * category.electronic) / homeOccupants;
-                break;
-
-            case 'Alimentation':
-                if (userInputs.redMeatKg) categoryTotal += userInputs.redMeatKg * category.redMeat;
-                if (userInputs.whiteMeatKg) categoryTotal += userInputs.whiteMeatKg * category.whiteMeat;
-                if (userInputs.porkKg) categoryTotal += userInputs.porkKg * category.pork;
-                break;
-
-            case 'Vetements':
-                if (userInputs.largeItems) categoryTotal += userInputs.largeItems * category.large;
-                if (userInputs.smallItems) categoryTotal += userInputs.smallItems * category.small;
-                if (userInputs.origin) {
-                    categoryTotal *= category.madein[userInputs.origin as keyof typeof category.madein];
-                }
-                break;
+            const data = await response.json();
+            categoryEmissions[selectedCategory] = data.result;
+        } catch (error) {
+            console.error('Erreur lors du calcul:', error);
         }
-
-        categoryEmissions[selectedCategory] = categoryTotal;
     }
 
     function resetCategory(category: keyof CarbonData) {
