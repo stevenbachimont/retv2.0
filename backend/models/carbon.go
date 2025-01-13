@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type TransportMode struct {
 	ID     string  `json:"id"`
 	Name   string  `json:"name"`
@@ -75,4 +77,19 @@ type CarbonFactors struct {
 			LocalShops float64 `json:"localShops"`
 		} `json:"commerce"`
 	} `json:"Consommation"`
+}
+
+type User struct {
+	ID       string `json:"id"`
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+type Result struct {
+	ID        string      `json:"id"`
+	UserID    string      `json:"user_id"`
+	Category  string      `json:"category"`
+	Value     float64     `json:"value"`
+	Inputs    interface{} `json:"inputs"`
+	CreatedAt time.Time   `json:"created_at"`
 }

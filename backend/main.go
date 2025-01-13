@@ -1,17 +1,46 @@
 package main
 
 import (
+	"carbone-app/config"
 	"carbone-app/models"
+	"database/sql"
+	"fmt"
+	"log"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
+var jwtKey = []byte("votre_clé_secrète_ici") // En production, utilisez une vraie clé secrète
+
+type Claims struct {
+	UserID string
+	jwt.StandardClaims
+}
+
+func dbMiddleware(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("db", db)
+		c.Next()
+	}
+}
+
 func main() {
+	db, err := config.InitDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
 	r := gin.Default()
+	r.Use(dbMiddleware(db))
 
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"*"}
+	config.AllowOrigins = []string{"http://localhost:5173"}
 	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
 	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
 	config.AllowCredentials = true
@@ -21,8 +50,20 @@ func main() {
 	// Routes pour les calculs carbone
 	api := r.Group("/api")
 	{
-		api.POST("/calculate", calculateCarbon)
+		// Routes publiques
 		api.GET("/factors", getCarbonFactors)
+		api.POST("/register", register)
+		api.POST("/login", login)
+		api.GET("/verify", verifyToken)
+
+		// Routes protégées
+		authorized := api.Group("")
+		authorized.Use(authMiddleware())
+		{
+			authorized.POST("/calculate", calculateCarbon)
+			authorized.POST("/results", saveResult)
+			authorized.GET("/results", getResults)
+		}
 	}
 
 	r.Run(":8080")
@@ -292,4 +333,227 @@ func getCarbonFactors(c *gin.Context) {
 	factors.Consommation.Commerce.LocalShops = 0.08
 
 	c.JSON(200, factors)
+}
+
+func authMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.GetHeader("Authorization")
+		if token == "" {
+			c.JSON(401, gin.H{"error": "Authorization required"})
+			c.Abort()
+			return
+		}
+		// Vérifier le token JWT et ajouter l'userID au contexte
+		userID, err := validateToken(token)
+		if err != nil {
+			c.JSON(401, gin.H{"error": "Invalid token"})
+			c.Abort()
+			return
+		}
+		c.Set("userID", userID)
+		c.Next()
+	}
+}
+
+func register(c *gin.Context) {
+	var input struct {
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+
+	if err := c.BindJSON(&input); err != nil {
+		log.Printf("Register - Erreur de binding: %v", err)
+		c.JSON(400, gin.H{"error": "Email et mot de passe requis"})
+		return
+	}
+
+	log.Printf("Register - Tentative d'inscription pour: %s", input.Email)
+	log.Printf("Register - Mot de passe reçu (len=%d): %s", len(input.Password), input.Password)
+
+	// Vérifier si l'email existe déjà
+	db := c.MustGet("db").(*sql.DB)
+	var existingID string
+	err := db.QueryRow("SELECT id FROM users WHERE email = $1", input.Email).Scan(&existingID)
+	if err == nil {
+		log.Printf("Register - Email déjà utilisé: %s", input.Email)
+		c.JSON(400, gin.H{"error": "Cet email est déjà utilisé"})
+		return
+	}
+
+	// Créer le nouvel utilisateur
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("Register - Erreur de hachage: %v", err)
+		c.JSON(500, gin.H{"error": "Erreur serveur"})
+		return
+	}
+
+	userID := uuid.New().String()
+	_, err = db.Exec(`
+		INSERT INTO users (id, email, password)
+		VALUES ($1, $2, $3)
+	`, userID, input.Email, string(hashedPassword))
+
+	if err != nil {
+		log.Printf("Register - Erreur d'insertion: %v", err)
+		c.JSON(500, gin.H{"error": "Impossible de créer l'utilisateur"})
+		return
+	}
+
+	log.Printf("Register - Inscription réussie pour: %s (ID: %s)", input.Email, userID)
+
+	token := generateToken(userID)
+	c.JSON(200, gin.H{
+		"token": token,
+		"user": gin.H{
+			"id":    userID,
+			"email": input.Email,
+		},
+	})
+}
+
+func login(c *gin.Context) {
+	var credentials struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := c.BindJSON(&credentials); err != nil {
+		log.Printf("Login - Erreur de binding: %v", err)
+		c.JSON(400, gin.H{"error": "Données invalides"})
+		return
+	}
+
+	log.Printf("Login - Tentative de connexion pour: %s avec mot de passe: %s", credentials.Email, credentials.Password)
+
+	db := c.MustGet("db").(*sql.DB)
+	var user models.User
+	var hashedPassword string
+
+	// Ajout de logs pour déboguer la requête SQL
+	query := "SELECT id, email, password FROM users WHERE email = $1"
+	err := db.QueryRow(query, credentials.Email).Scan(&user.ID, &user.Email, &hashedPassword)
+	if err != nil {
+		log.Printf("Login - Utilisateur non trouvé: %v", err)
+		c.JSON(401, gin.H{"error": "Email ou mot de passe incorrect"})
+		return
+	}
+
+	log.Printf("Login - Hash stocké: %s", hashedPassword)
+	log.Printf("Login - Mot de passe fourni: %s", credentials.Password)
+
+	// Ajout de logs pour déboguer la comparaison des mots de passe
+	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(credentials.Password)); err != nil {
+		log.Printf("Login - Erreur de comparaison: %v", err)
+		log.Printf("Login - Hash stocké (len=%d): %x", len(hashedPassword), hashedPassword)
+		log.Printf("Login - Mot de passe fourni (len=%d): %x", len(credentials.Password), credentials.Password)
+		c.JSON(401, gin.H{"error": "Email ou mot de passe incorrect"})
+		return
+	}
+
+	log.Printf("Login - Connexion réussie pour: %s (ID: %s)", credentials.Email, user.ID)
+	token := generateToken(user.ID)
+	c.JSON(200, gin.H{
+		"token": token,
+		"user":  user,
+	})
+}
+
+func saveResult(c *gin.Context) {
+	db := c.MustGet("db").(*sql.DB)
+	userID, _ := c.Get("userID")
+	var result models.Result
+	if err := c.BindJSON(&result); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	result.ID = uuid.New().String()
+	result.UserID = userID.(string)
+	result.CreatedAt = time.Now()
+
+	_, err := db.Exec(`
+		INSERT INTO results (id, user_id, category, value, inputs, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, result.ID, result.UserID, result.Category, result.Value, result.Inputs, result.CreatedAt)
+
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Could not save result"})
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+func getResults(c *gin.Context) {
+	_, _ = c.Get("userID")
+	// TODO: Récupérer les résultats depuis la base de données
+	c.JSON(200, []models.Result{})
+}
+
+func validateToken(tokenStr string) (string, error) {
+	claims := &Claims{}
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+
+	if err != nil {
+		log.Printf("Erreur parsing token: %v", err)
+		return "", err
+	}
+
+	if !token.Valid {
+		return "", fmt.Errorf("token invalide")
+	}
+
+	return claims.UserID, nil
+}
+
+func generateToken(userID string) string {
+	expirationTime := time.Now().Add(24 * time.Hour)
+	claims := &Claims{
+		UserID: userID,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		log.Printf("Erreur génération token: %v", err)
+		return ""
+	}
+
+	return tokenString
+}
+
+func verifyToken(c *gin.Context) {
+	token := c.GetHeader("Authorization")
+	if token == "" {
+		c.JSON(401, gin.H{"error": "No token provided"})
+		return
+	}
+
+	// Enlever le préfixe "Bearer " si présent
+	if len(token) > 7 && token[:7] == "Bearer " {
+		token = token[7:]
+	}
+
+	userID, err := validateToken(token)
+	if err != nil {
+		c.JSON(401, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	// Récupérer l'utilisateur depuis la base de données
+	db := c.MustGet("db").(*sql.DB)
+	var user models.User
+	err = db.QueryRow("SELECT id, email FROM users WHERE id = $1", userID).Scan(&user.ID, &user.Email)
+	if err != nil {
+		log.Printf("Erreur de recherche utilisateur: %v", err)
+		c.JSON(401, gin.H{"error": "User not found"})
+		return
+	}
+
+	c.JSON(200, user)
 }
