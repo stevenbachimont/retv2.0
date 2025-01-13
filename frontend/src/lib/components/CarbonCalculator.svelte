@@ -28,6 +28,11 @@
                 partial: number;
                 total: number;
             };
+            shortCircuit: {
+                none: number;
+                partial: number;
+                majority: number;
+            };
         };
         Vetements: {
             large: number;
@@ -48,6 +53,17 @@
                 old: number;
             };
         };
+        Consommation: {
+            ecommerce: {
+                amazon: number;
+                leboncoin: number;
+                artisanat: number;
+            };
+            commerce: {
+                brocante: number;
+                localShops: number;
+            };
+        };
     }
 
     let carbonData: CarbonData | null = null;
@@ -59,6 +75,7 @@
         Alimentation: 0,
         Vetements: 0,
         Numerique: 0,
+        Consommation: 0,
         Services_communs: 1500
     };
 
@@ -124,6 +141,7 @@
                         <option value="Alimentation">🍽️ Alimentation</option>
                         <option value="Vetements">👕 Vêtements</option>
                         <option value="Numerique">💻 Numérique</option>
+                        <option value="Consommation">🛍️ Consommation</option>
                     </select>
                 </label>
 
@@ -211,6 +229,14 @@
                                     <option value="total">Toujours</option>
                                 </select>
                             </label>
+                            <label class="form-label">
+                                Achats en circuits courts :
+                                <select bind:value={userInputs.shortCircuit} class="form-input">
+                                    <option value="none">Rarement ou jamais</option>
+                                    <option value="partial">Parfois (environ 50%)</option>
+                                    <option value="majority">Majoritairement (>80%)</option>
+                                </select>
+                            </label>
                         {/if}
 
                         {#if selectedCategory === 'Vetements'}
@@ -268,7 +294,7 @@
                                     <select bind:value={userInputs.smartphoneState} class="form-input">
                                         <option value="new">Neuf</option>
                                         <option value="used">Occasion</option>
-                                        <option value="old">Gardé depuis 5+ ans</option>
+                                        <option value="old">Gardé depuis 3+ ans</option>
                                     </select>
                                 </label>
                             {/if}
@@ -290,6 +316,62 @@
                             </p>
                             <p class="info-text">
                                 Les PC sont comptés dans la section logement et électroménagers (électronique)
+                            </p>
+                        {/if}
+
+                        {#if selectedCategory === 'Consommation'}
+                            <label class="form-label">
+                                Nombre de commandes Amazon par an :
+                                <input 
+                                    type="number" 
+                                    bind:value={userInputs.amazonOrders} 
+                                    class="form-input"
+                                    min="0"
+                                    placeholder="0"
+                                />
+                            </label>
+                            <label class="form-label">
+                                Nombre d'achats Le Bon Coin par an :
+                                <input 
+                                    type="number" 
+                                    bind:value={userInputs.leboncoinOrders} 
+                                    class="form-input"
+                                    min="0"
+                                    placeholder="0"
+                                />
+                            </label>
+                            <label class="form-label">
+                                Nombre d'achats artisanaux par an :
+                                <input 
+                                    type="number" 
+                                    bind:value={userInputs.artisanatOrders} 
+                                    class="form-input"
+                                    min="0"
+                                    placeholder="0"
+                                />
+                            </label>
+                            <label class="form-label">
+                                Nombre d'achats en brocante par an :
+                                <input 
+                                    type="number" 
+                                    bind:value={userInputs.brocanteItems} 
+                                    class="form-input"
+                                    min="0"
+                                    placeholder="0"
+                                />
+                            </label>
+                            <label class="form-label">
+                                Nombre d'achats chez les commerçants locaux par an :
+                                <input 
+                                    type="number" 
+                                    bind:value={userInputs.localShopOrders} 
+                                    class="form-input"
+                                    min="0"
+                                    placeholder="0"
+                                />
+                            </label>
+                            <p class="info-text">
+                                Les achats alimentaires sont à compter dans la section Alimentation
                             </p>
                         {/if}
                         
@@ -356,17 +438,19 @@
     }
 
     .calculator-card {
-        background: hsl(0, 0%, calc(100% - (15% * (1 - var(--color-intensity)))));
+        background: hsl(0, 0%, calc(100% - (10% * (1 - var(--color-intensity)))));
         border-radius: 1rem;
         padding: 2rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, calc(0.1 + (0.2 * (1 - var(--color-intensity)))));
+        box-shadow: 0 4px 6px rgba(0, 0, 0, calc(0.15 + (0.25 * (1 - var(--color-intensity)))));
         max-width: 800px;
         margin: 0 auto;
+        color: hsl(162, 10%, calc(15% + (25% * var(--color-intensity))));
     }
 
     .title {
-        color: hsl(162, calc(80% * var(--color-intensity)), 25%);
+        color: hsl(162, calc(85% * var(--color-intensity)), 20%);
         margin-bottom: 2rem;
+        font-weight: 600;
     }
 
     .calculate-button {
@@ -383,8 +467,15 @@
         background: hsl(162, calc(85% * var(--color-intensity)), 28%);
     }
 
+    .form-label {
+        color: hsl(162, 10%, 20%);
+        font-weight: 500;
+    }
+
     .form-input, .category-select {
-        border: 2px solid hsl(162, calc(30% * var(--color-intensity)), 88%);
+        border: 2px solid hsl(162, calc(30% * var(--color-intensity)), 75%);
+        background: white;
+        color: hsl(162, 10%, 15%);
         border-radius: 0.375rem;
         padding: 0.5rem;
     }
@@ -409,17 +500,19 @@
     }
 
     .result-card {
-        background: hsl(0, 0%, calc(100% - (15% * (1 - var(--color-intensity)))));
+        background: hsl(0, 0%, calc(100% - (5% * (1 - var(--color-intensity)))));
         padding: 1rem;
         margin: 0.5rem 0;
         border-radius: 0.5rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, calc(0.05 + (0.15 * (1 - var(--color-intensity)))));
+        box-shadow: 0 2px 4px rgba(0, 0, 0, calc(0.1 + (0.2 * (1 - var(--color-intensity)))));
         position: relative;
         overflow: hidden;
         z-index: 1;
+        color: hsl(162, 10%, 20%);
+        font-weight: 500;
     }
 
     .total-card {
@@ -449,7 +542,8 @@
 
     .info-text {
         font-size: 0.8em;
-        color: #666;
+        color: hsl(162, 10%, 35%);
+        font-weight: 500;
         font-style: italic;
     }
 </style> 

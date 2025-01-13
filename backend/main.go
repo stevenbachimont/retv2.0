@@ -47,7 +47,7 @@ func calculateCarbon(c *gin.Context) {
 	factors.Transports.Car.Medium = 0.2
 	factors.Transports.Car.Big = 0.3
 
-	factors.LogementElectromenagers.Electricity = 0.4
+	factors.LogementElectromenagers.Electricity = 0.57
 	factors.LogementElectromenagers.Gas = 0.2
 	factors.LogementElectromenagers.Apartment = 15
 	factors.LogementElectromenagers.House = 20
@@ -61,6 +61,10 @@ func calculateCarbon(c *gin.Context) {
 	factors.Alimentation.BulkFoodPurchase.Partial = 0.9
 	factors.Alimentation.BulkFoodPurchase.Total = 0.8
 
+	factors.Alimentation.ShortCircuit.None = 1.0
+	factors.Alimentation.ShortCircuit.Partial = 0.9
+	factors.Alimentation.ShortCircuit.Majority = 0.8
+
 	factors.Vetements.Large = 15
 	factors.Vetements.Small = 10
 	factors.Vetements.Madein.France = 1
@@ -73,6 +77,12 @@ func calculateCarbon(c *gin.Context) {
 	factors.Numerique.Smartphone.Large = 75
 	factors.Numerique.Smartphone.Used = 0.5
 	factors.Numerique.Smartphone.Old = 0.5
+
+	factors.Consommation.Ecommerce.Amazon = 0.25
+	factors.Consommation.Ecommerce.LeBonCoin = 0.05
+	factors.Consommation.Ecommerce.Artisanat = 0.1
+	factors.Consommation.Commerce.Brocante = 0.03
+	factors.Consommation.Commerce.LocalShops = 0.08
 
 	var result float64
 
@@ -153,6 +163,16 @@ func calculateCarbon(c *gin.Context) {
 				result *= factors.Alimentation.BulkFoodPurchase.Total
 			}
 		}
+		if shortCircuit, ok := input.UserInputs["shortCircuit"].(string); ok {
+			switch shortCircuit {
+			case "none":
+				result *= factors.Alimentation.ShortCircuit.None
+			case "partial":
+				result *= factors.Alimentation.ShortCircuit.Partial
+			case "majority":
+				result *= factors.Alimentation.ShortCircuit.Majority
+			}
+		}
 
 	case "Vetements":
 		if largeItems, ok := input.UserInputs["largeItems"].(float64); ok {
@@ -200,6 +220,23 @@ func calculateCarbon(c *gin.Context) {
 		if socialHours, ok := input.UserInputs["socialHours"].(float64); ok {
 			result += (socialHours * 365) * factors.Numerique.SocialMedia
 		}
+
+	case "Consommation":
+		if amazonOrders, ok := input.UserInputs["amazonOrders"].(float64); ok {
+			result += amazonOrders * factors.Consommation.Ecommerce.Amazon
+		}
+		if leboncoinOrders, ok := input.UserInputs["leboncoinOrders"].(float64); ok {
+			result += leboncoinOrders * factors.Consommation.Ecommerce.LeBonCoin
+		}
+		if artisanatOrders, ok := input.UserInputs["artisanatOrders"].(float64); ok {
+			result += artisanatOrders * factors.Consommation.Ecommerce.Artisanat
+		}
+		if brocanteItems, ok := input.UserInputs["brocanteItems"].(float64); ok {
+			result += brocanteItems * factors.Consommation.Commerce.Brocante
+		}
+		if localShopOrders, ok := input.UserInputs["localShopOrders"].(float64); ok {
+			result += localShopOrders * factors.Consommation.Commerce.LocalShops
+		}
 	}
 
 	c.JSON(200, gin.H{
@@ -231,6 +268,10 @@ func getCarbonFactors(c *gin.Context) {
 	factors.Alimentation.BulkFoodPurchase.Partial = 0.9
 	factors.Alimentation.BulkFoodPurchase.Total = 0.8
 
+	factors.Alimentation.ShortCircuit.None = 1.0
+	factors.Alimentation.ShortCircuit.Partial = 0.9
+	factors.Alimentation.ShortCircuit.Majority = 0.8
+
 	factors.Vetements.Large = 15
 	factors.Vetements.Small = 10
 	factors.Vetements.Madein.France = 1
@@ -243,6 +284,12 @@ func getCarbonFactors(c *gin.Context) {
 	factors.Numerique.Smartphone.Large = 75
 	factors.Numerique.Smartphone.Used = 0.5
 	factors.Numerique.Smartphone.Old = 0.5
+
+	factors.Consommation.Ecommerce.Amazon = 0.25
+	factors.Consommation.Ecommerce.LeBonCoin = 0.05
+	factors.Consommation.Ecommerce.Artisanat = 0.1
+	factors.Consommation.Commerce.Brocante = 0.03
+	factors.Consommation.Commerce.LocalShops = 0.08
 
 	c.JSON(200, factors)
 }

@@ -39,6 +39,11 @@ type CarbonFactors struct {
 			Partial float64 `json:"partial"`
 			Total   float64 `json:"total"`
 		} `json:"bulkFoodPurchase"`
+		ShortCircuit struct {
+			None     float64 `json:"none"`
+			Partial  float64 `json:"partial"`
+			Majority float64 `json:"majority"`
+		} `json:"shortCircuit"`
 	} `json:"Alimentation"`
 	Vetements struct {
 		Large  float64 `json:"large"`
@@ -59,4 +64,15 @@ type CarbonFactors struct {
 			Old   float64 `json:"old"`
 		} `json:"smartphone"`
 	} `json:"Numerique"`
+	Consommation struct {
+		Ecommerce struct {
+			Amazon    float64 `json:"amazon"`
+			LeBonCoin float64 `json:"leboncoin"`
+			Artisanat float64 `json:"artisanat"`
+		} `json:"ecommerce"`
+		Commerce struct {
+			Brocante   float64 `json:"brocante"`
+			LocalShops float64 `json:"localShops"`
+		} `json:"commerce"`
+	} `json:"Consommation"`
 }
