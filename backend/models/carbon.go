@@ -48,4 +48,15 @@ type CarbonFactors struct {
 			Autre  float64 `json:"autre"`
 		} `json:"madein"`
 	} `json:"Vetements"`
+	Numerique struct {
+		GoogleSearch float64 `json:"googleSearch"`
+		ChatGPT      float64 `json:"chatGPT"`
+		SocialMedia  float64 `json:"socialMedia"`
+		Smartphone   struct {
+			Small float64 `json:"small"`
+			Large float64 `json:"large"`
+			Used  float64 `json:"used"`
+			Old   float64 `json:"old"`
+		} `json:"smartphone"`
+	} `json:"Numerique"`
 }

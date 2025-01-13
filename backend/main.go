@@ -66,6 +66,14 @@ func calculateCarbon(c *gin.Context) {
 	factors.Vetements.Madein.France = 1
 	factors.Vetements.Madein.Autre = 1.2
 
+	factors.Numerique.GoogleSearch = 0.0002
+	factors.Numerique.ChatGPT = 0.000382
+	factors.Numerique.SocialMedia = 0.000380
+	factors.Numerique.Smartphone.Small = 35
+	factors.Numerique.Smartphone.Large = 75
+	factors.Numerique.Smartphone.Used = 0.5
+	factors.Numerique.Smartphone.Old = 0.5
+
 	var result float64
 
 	switch input.Category {
@@ -161,6 +169,37 @@ func calculateCarbon(c *gin.Context) {
 				result *= factors.Vetements.Madein.Autre
 			}
 		}
+
+	case "Numerique":
+		if googleSearches, ok := input.UserInputs["googleSearches"].(float64); ok {
+			result += (googleSearches * 365) * factors.Numerique.GoogleSearch
+		}
+		if chatgptPrompts, ok := input.UserInputs["chatgptPrompts"].(float64); ok {
+			result += (chatgptPrompts * 365) * factors.Numerique.ChatGPT
+		}
+		if smartphoneType, ok := input.UserInputs["smartphoneType"].(string); ok && smartphoneType != "" {
+			var baseEmission float64
+			switch smartphoneType {
+			case "small":
+				baseEmission = factors.Numerique.Smartphone.Small
+			case "large":
+				baseEmission = factors.Numerique.Smartphone.Large
+			}
+
+			if state, ok := input.UserInputs["smartphoneState"].(string); ok {
+				switch state {
+				case "used":
+					baseEmission *= factors.Numerique.Smartphone.Used
+				case "old":
+					baseEmission *= factors.Numerique.Smartphone.Old
+				}
+			}
+
+			result += baseEmission
+		}
+		if socialHours, ok := input.UserInputs["socialHours"].(float64); ok {
+			result += (socialHours * 365) * factors.Numerique.SocialMedia
+		}
 	}
 
 	c.JSON(200, gin.H{
@@ -196,6 +235,14 @@ func getCarbonFactors(c *gin.Context) {
 	factors.Vetements.Small = 10
 	factors.Vetements.Madein.France = 1
 	factors.Vetements.Madein.Autre = 1.2
+
+	factors.Numerique.GoogleSearch = 0.0002
+	factors.Numerique.ChatGPT = 0.000382
+	factors.Numerique.SocialMedia = 0.000380
+	factors.Numerique.Smartphone.Small = 35
+	factors.Numerique.Smartphone.Large = 75
+	factors.Numerique.Smartphone.Used = 0.5
+	factors.Numerique.Smartphone.Old = 0.5
 
 	c.JSON(200, factors)
 }

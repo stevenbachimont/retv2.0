@@ -37,6 +37,17 @@
                 autre: number;
             };
         };
+        Numerique: {
+            googleSearch: number;
+            chatGPT: number;
+            socialMedia: number;
+            smartphone: {
+                small: number;
+                large: number;
+                used: number;
+                old: number;
+            };
+        };
     }
 
     let carbonData: CarbonData | null = null;
@@ -47,10 +58,12 @@
         Logement_electromenagers: 0,
         Alimentation: 0,
         Vetements: 0,
+        Numerique: 0,
         Services_communs: 1500
     };
 
     $: totalGlobalEmissions = Object.values(categoryEmissions).reduce((sum, val) => sum + val, 0);
+    $: colorIntensity = Math.max(0, Math.min(1, 1 - (totalGlobalEmissions / 10000)));
 
     onMount(async () => {
         try {
@@ -91,7 +104,7 @@
   }
 </script>
 
-<div class="calculator-container">
+<div class="calculator-container" style="--color-intensity: {colorIntensity}">
     <div class="calculator-card">
         <h2 class="title">
             Calculateur d'Empreinte Carbone Annuelle
@@ -110,6 +123,7 @@
                         <option value="Logement_electromenagers">🏠 Logement et Électroménagers</option>
                         <option value="Alimentation">🍽️ Alimentation</option>
                         <option value="Vetements">👕 Vêtements</option>
+                        <option value="Numerique">💻 Numérique</option>
                     </select>
                 </label>
 
@@ -216,7 +230,70 @@
       </select>
                             </label>
                         {/if}
-    </div>
+
+                        {#if selectedCategory === 'Numerique'}
+                            <label class="form-label">
+                                Nombre de recherches Google par jour :
+                                <input 
+                                    type="number" 
+                                    bind:value={userInputs.googleSearches} 
+                                    class="form-input"
+                                    min="0"
+                                    placeholder="0"
+                                />
+                            </label>
+                            <label class="form-label">
+                                Nombre de prompts ChatGPT par jour :
+                                <input 
+                                    type="number" 
+                                    bind:value={userInputs.chatgptPrompts} 
+                                    class="form-input"
+                                    min="0"
+                                    placeholder="0"
+                                />
+                            </label>
+                            
+                            <label class="form-label">
+                                Achat de smartphone cette année :
+                                <select bind:value={userInputs.smartphoneType} class="form-input">
+                                    <option value="">Aucun achat</option>
+                                    <option value="small">Petit modèle</option>
+                                    <option value="large">Grand modèle</option>
+                                </select>
+                            </label>
+
+                            {#if userInputs.smartphoneType}
+                                <label class="form-label">
+                                    État du smartphone :
+                                    <select bind:value={userInputs.smartphoneState} class="form-input">
+                                        <option value="new">Neuf</option>
+                                        <option value="used">Occasion</option>
+                                        <option value="old">Gardé depuis 5+ ans</option>
+                                    </select>
+                                </label>
+                            {/if}
+
+                            <label class="form-label">
+                                Temps passé sur les réseaux sociaux par jour (heures) :
+                                <input 
+                                    type="number" 
+                                    bind:value={userInputs.socialHours} 
+                                    class="form-input"
+                                    min="0"
+                                    max="24"
+                                    step="0.5"
+                                    placeholder="0"
+                                />
+                            </label>
+                            <p class="info-text">
+                                Les valeurs seront automatiquement multipliées par 365 pour obtenir l'impact annuel
+                            </p>
+                            <p class="info-text">
+                                Les PC sont comptés dans la section logement et électroménagers (électronique)
+                            </p>
+                        {/if}
+                        
+                    </div>
 
                     <button class="calculate-button" on:click={calculateEmissions}>
                         Calculer la catégorie
@@ -271,20 +348,50 @@
 
     .calculator-container {
         min-height: 100vh;
-        background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
+        background: linear-gradient(135deg, 
+            hsl(142, calc(100% * var(--color-intensity)), calc(97% - (40% * (1 - var(--color-intensity))))) 0%, 
+            hsl(170, calc(100% * var(--color-intensity)), calc(95% - (80% * (1 - var(--color-intensity))))) 100%);
         padding: 2rem 1rem;
+        color: hsl(162, 10%, calc(20% + (60% * var(--color-intensity))));
     }
 
-    .info-text {
-        font-size: 0.8em;
-        color: #666;
-        font-style: italic;
+    .calculator-card {
+        background: hsl(0, 0%, calc(100% - (15% * (1 - var(--color-intensity)))));
+        border-radius: 1rem;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, calc(0.1 + (0.2 * (1 - var(--color-intensity)))));
+        max-width: 800px;
+        margin: 0 auto;
     }
 
-    .result-card {
-        position: relative;
-        overflow: hidden;
-        z-index: 1;
+    .title {
+        color: hsl(162, calc(80% * var(--color-intensity)), 25%);
+        margin-bottom: 2rem;
+    }
+
+    .calculate-button {
+        background: hsl(162, calc(85% * var(--color-intensity)), 32%);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    .calculate-button:hover {
+        background: hsl(162, calc(85% * var(--color-intensity)), 28%);
+    }
+
+    .form-input, .category-select {
+        border: 2px solid hsl(162, calc(30% * var(--color-intensity)), 88%);
+        border-radius: 0.375rem;
+        padding: 0.5rem;
+    }
+
+    .form-input:focus, .category-select:focus {
+        border-color: hsl(162, calc(60% * var(--color-intensity)), 45%);
+        outline: none;
     }
 
     .result-card::before {
@@ -294,8 +401,55 @@
         left: 0;
         height: 100%;
         width: var(--progress);
-        background: linear-gradient(to right, rgba(5, 150, 105, 0.1), rgba(5, 150, 105, 0.2));
+        background: linear-gradient(to right, 
+            hsla(162, calc(95% * var(--color-intensity)), 30%, 0.1),
+            hsla(162, calc(95% * var(--color-intensity)), 30%, 0.2));
         z-index: -1;
-        transition: width 0.3s ease-in-out;
+        transition: all 0.3s ease-in-out;
+    }
+
+    .result-card {
+        background: hsl(0, 0%, calc(100% - (15% * (1 - var(--color-intensity)))));
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-radius: 0.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, calc(0.05 + (0.15 * (1 - var(--color-intensity)))));
+        position: relative;
+        overflow: hidden;
+        z-index: 1;
+    }
+
+    .total-card {
+        background: hsl(162, calc(85% * var(--color-intensity)), 32%);
+        color: white;
+        padding: 1rem;
+        margin-top: 1rem;
+        border-radius: 0.5rem;
+    }
+
+    .reset-button {
+        background: hsl(162, calc(40% * var(--color-intensity)), 90%);
+        color: hsl(162, calc(85% * var(--color-intensity)), 32%);
+        border: none;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        margin-left: 0.5rem;
+        transition: all 0.3s;
+    }
+
+    .reset-button:hover {
+        background: hsl(162, calc(85% * var(--color-intensity)), 32%);
+        color: white;
+    }
+
+    .info-text {
+        font-size: 0.8em;
+        color: #666;
+        font-style: italic;
     }
 </style> 
