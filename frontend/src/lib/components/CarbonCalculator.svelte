@@ -111,7 +111,7 @@
         if (category === selectedCategory) {
             userInputs = {};
         }
-    }
+  }
 </script>
 
 <div class="calculator-container">
@@ -124,7 +124,7 @@
             <div class="form-section">
                 <label class="form-label">
                     Catégorie :
-                    <select 
+      <select 
                         class="category-select"
                         bind:value={selectedCategory}
                     >
@@ -236,10 +236,10 @@
                                 <select bind:value={userInputs.origin} class="form-input">
                                     <option value="france">France</option>
                                     <option value="autre">Autre pays</option>
-                                </select>
+      </select>
                             </label>
                         {/if}
-                    </div>
+    </div>
 
                     <button class="calculate-button" on:click={calculateEmissions}>
                         Calculer la catégorie
@@ -249,7 +249,7 @@
                 <div class="results-section">
                     <h3 class="title">Résumé des émissions</h3>
                     {#each Object.entries(categoryEmissions) as [category, emissions]}
-                        <div class="result-card">
+                        <div class="result-card" style="--progress: {Math.min((emissions / totalGlobalEmissions) * 100, 100)}%">
                             <span>
                                 {category.replace('_', ' ')}
                                 {#if category === 'Services_communs'}
@@ -279,7 +279,7 @@
             <div class="loading-spinner"></div>
         {/if}
     </div>
-</div>
+</div> 
 
 <style>
     /* Animations optionnelles */
@@ -302,5 +302,23 @@
         font-size: 0.8em;
         color: #666;
         font-style: italic;
+    }
+
+    .result-card {
+        position: relative;
+        overflow: hidden;
+        z-index: 1;
+    }
+
+    .result-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: var(--progress);
+        background: linear-gradient(to right, rgba(5, 150, 105, 0.1), rgba(5, 150, 105, 0.2));
+        z-index: -1;
+        transition: width 0.3s ease-in-out;
     }
 </style> 
