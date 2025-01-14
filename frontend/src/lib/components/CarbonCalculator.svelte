@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { user } from '../stores';
     import { writable } from 'svelte/store';
+    import { slide } from 'svelte/transition';
     
     interface CarbonData {
         Transports: {
@@ -92,6 +93,31 @@
         userInputs = { ...savedInputsByCategory[$selectedCategoryStore] };
     }
 
+    // Ajout du mois sélectionné
+    const currentMonth = new Date().toISOString().slice(0, 7); // Format: "2024-01"
+    let selectedMonth = currentMonth;
+    
+    // Grouper les résultats par mois
+    let resultsByMonth: Record<string, Record<string, number>> = {};
+    let inputsByMonth: Record<string, Record<string, any>> = {};
+
+    // Ajouter une structure pour stocker les totaux mensuels
+    let monthlyTotals: Record<string, number> = {};
+
+    // Calculer le total pour un mois donné
+    function calculateMonthlyTotal(month: string) {
+        if (!resultsByMonth[month]) return 0;
+        return Object.values(resultsByMonth[month]).reduce((sum, val) => sum + val, 0) + 1500; // +1500 pour Services_communs
+    }
+
+    // Mettre à jour les totaux quand les résultats changent
+    $: if (resultsByMonth) {
+        Object.keys(resultsByMonth).forEach(month => {
+            monthlyTotals[month] = calculateMonthlyTotal(month);
+        });
+    }
+
+    // Charger les résultats avec gestion des mois
     async function loadUserResults() {
         try {
             const response = await fetch('http://localhost:8080/api/results', {
@@ -101,20 +127,100 @@
             });
             if (response.ok) {
                 const results = await response.json();
+                console.log("Résultats reçus:", results);
                 if (Array.isArray(results)) {
+                    // Réinitialiser les structures
+                    resultsByMonth = {};
+                    inputsByMonth = {};
+                    
                     results.forEach((result: any) => {
-                        if (result && result.category && typeof result.value === 'number') {
-                            categoryEmissions[result.category] = result.value;
-                            if (result.inputs) {
-                                savedInputsByCategory[result.category] = result.inputs;
-                            }
+                        const month = new Date(result.month).toISOString().slice(0, 7);
+                        console.log("Traitement du mois:", month, "pour la catégorie:", result.category);
+                        if (!resultsByMonth[month]) {
+                            resultsByMonth[month] = {};
+                            inputsByMonth[month] = {};
+                        }
+                        resultsByMonth[month][result.category] = result.value;
+                        if (result.inputs) {
+                            inputsByMonth[month][result.category] = result.inputs;
                         }
                     });
+                    
+                    console.log("ResultsByMonth:", resultsByMonth);
+                    console.log("MonthlyTotals:", monthlyTotals);
+                    // Mettre à jour les émissions pour le mois sélectionné
+                    updateEmissionsForMonth(selectedMonth);
                 }
             }
         } catch (error) {
             console.error('Erreur lors du chargement des résultats:', error);
         }
+    }
+
+    // Mettre à jour les émissions quand le mois change
+    function updateEmissionsForMonth(month: string) {
+        // Réinitialiser d'abord toutes les émissions
+        Object.keys(categoryEmissions).forEach(category => {
+            if (category !== 'Services_communs') {
+                categoryEmissions[category] = 0;
+            }
+        });
+        userInputs = {};
+
+        if (resultsByMonth[month]) {
+            Object.entries(resultsByMonth[month]).forEach(([category, value]) => {
+                categoryEmissions[category] = value;
+            });
+            
+            // Si une catégorie est sélectionnée, charger ses inputs
+            if ($selectedCategoryStore && inputsByMonth[month]?.[$selectedCategoryStore]) {
+                userInputs = { ...inputsByMonth[month][$selectedCategoryStore] };
+            }
+        }
+    }
+
+    // Surveiller les changements de mois sélectionné
+    $: selectedMonth && updateEmissionsForMonth(selectedMonth);
+
+    async function saveResult(category: string, value: number, inputs: any) {
+        try {
+            // Sauvegarder pour le mois sélectionné
+            await fetch('http://localhost:8080/api/results', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': localStorage.getItem('token') || '',
+                },
+                body: JSON.stringify({
+                    category,
+                    value,
+                    inputs,
+                    month: selectedMonth,
+                }),
+            });
+
+            // Mettre à jour les structures locales
+            if (!resultsByMonth[selectedMonth]) {
+                resultsByMonth[selectedMonth] = {};
+                inputsByMonth[selectedMonth] = {};
+            }
+            resultsByMonth[selectedMonth][category] = value;
+            inputsByMonth[selectedMonth][category] = inputs;
+            
+            // Recalculer le total mensuel
+            monthlyTotals[selectedMonth] = calculateMonthlyTotal(selectedMonth);
+
+        } catch (error) {
+            console.error('Erreur lors de la sauvegarde:', error);
+        }
+    }
+
+    // Ajouter un état pour suivre quel mois a ses détails affichés
+    let expandedMonth: string | null = null;
+
+    // Fonction pour gérer l'affichage/masquage des détails
+    function toggleMonthDetails(month: string) {
+        expandedMonth = expandedMonth === month ? null : month;
     }
 
     onMount(async () => {
@@ -127,8 +233,8 @@
             await Promise.all([
                 loadUserResults(),
                 (async () => {
-                    const response = await fetch('http://localhost:8080/api/factors');
-                    carbonData = await response.json();
+            const response = await fetch('http://localhost:8080/api/factors');
+            carbonData = await response.json();
                 })()
             ]);
         } catch (error) {
@@ -163,181 +269,222 @@
         }
     }
 
-    async function saveResult(category: string, value: number, inputs: any) {
-        try {
-            await fetch('http://localhost:8080/api/results', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': localStorage.getItem('token') || '',
-                },
-                body: JSON.stringify({
-                    category,
-                    value,
-                    inputs,
-                }),
-            });
-        } catch (error) {
-            console.error('Erreur lors de la sauvegarde:', error);
-        }
-    }
-
     function resetCategory(category: keyof CarbonData) {
         categoryEmissions[category] = 0;
         if (category === $selectedCategoryStore) {
             userInputs = {};
         }
-    }
+  }
 
     function handleLogout() {
         localStorage.removeItem('token');
         user.set(null);
         window.location.href = '/';
     }
+
+    // Fonction pour obtenir une couleur par catégorie
+    const colors = {
+        'Transports': '#FF5252',
+        'Logement_electromenagers': '#4CAF50',
+        'Alimentation': '#FF9800',
+        'Vetements': '#03A9F4',
+        'Numerique': '#7C4DFF',
+        'Consommation': '#FFC107',
+        'Services_communs': '#9E9E9E'
+    } as const;
+
+    function getCategoryColor(category: keyof typeof colors | string): string {
+        return colors[category as keyof typeof colors] || '#9E9E9E';
+    }
+
+    // Fonction pour calculer le total annuel
+    function calculateYearlyTotal(year: string) {
+        return Object.entries(monthlyTotals)
+            .filter(([month]) => month.startsWith(year))
+            .reduce((sum, [_, total]) => sum + total, 0);
+    }
+
+    // Fonction pour obtenir les totaux par catégorie pour une année
+    function getYearlyTotalsByCategory(year: string) {
+        const totals: Record<string, number> = {};
+        Object.entries(resultsByMonth)
+            .filter(([month]) => month.startsWith(year))
+            .forEach(([_, monthData]) => {
+                Object.entries(monthData).forEach(([category, value]) => {
+                    totals[category] = (totals[category] || 0) + value;
+                });
+            });
+        return totals;
+    }
+
+    // Fonction pour obtenir toutes les années disponibles
+    function getAvailableYears(): string[] {
+        return [...new Set(
+            Object.keys(monthlyTotals)
+                .map(month => month.slice(0, 4))
+        )].sort().reverse();
+    }
+
+    // Fonction pour obtenir les mois d'une année spécifique
+    function getMonthsForYear(year: string): string[] {
+        return Object.keys(monthlyTotals)
+            .filter(month => month.startsWith(year))
+            .sort((a, b) => b.localeCompare(a));
+    }
 </script>
 
 {#if $user}
     <div class="calculator-container" style="--color-intensity: {colorIntensity}">
         <div class="header">
-            <h2 class="title">Calculateur d'Empreinte Carbone Annuelle</h2>
+            <h2 class="title">Suivi mensuel de votre empreinte carbone</h2>
             <button class="logout-button" on:click={handleLogout}>
                 Déconnexion
             </button>
         </div>
-        <div class="calculator-card">
-            <h2 class="title">
-                Calculateur d'Empreinte Carbone Annuelle
-            </h2>
+    <div class="calculator-card">
+        <h2 class="title">
+            Calculateur d'Empreinte Carbone Annuelle
+        </h2>
 
-            {#if carbonData}
-                <div class="form-section">
+        {#if carbonData}
+            <div class="form-section">
                     <label class="form-label">
-                        Catégorie :
-      <select 
-                            class="category-select"
-                            bind:value={$selectedCategoryStore}
-                        >
-                            <option value={null}>Choisir une catégorie</option>
-                            <option value="Transports">🚗 Transports</option>
-                            <option value="Logement_electromenagers">🏠 Logement et Électroménagers</option>
-                            <option value="Alimentation">🍽️ Alimentation</option>
-                            <option value="Vetements">👕 Vêtements</option>
-                            <option value="Numerique">💻 Numérique</option>
-                            <option value="Consommation">🛍️ Consommation</option>
-                        </select>
+                        Mois :
+                        <input 
+                            type="month" 
+                            bind:value={selectedMonth}
+                            max={currentMonth}
+                            class="form-input"
+                        />
                     </label>
 
+                <label class="form-label">
+                    Catégorie :
+      <select 
+                        class="category-select"
+                            bind:value={$selectedCategoryStore}
+                    >
+                        <option value={null}>Choisir une catégorie</option>
+                        <option value="Transports">🚗 Transports</option>
+                        <option value="Logement_electromenagers">🏠 Logement et Électroménagers</option>
+                        <option value="Alimentation">🍽️ Alimentation</option>
+                        <option value="Vetements">👕 Vêtements</option>
+                            <option value="Numerique">💻 Numérique</option>
+                            <option value="Consommation">🛍️ Consommation</option>
+                    </select>
+                </label>
+
                     {#if $selectedCategoryStore}
-                        <div class="input-group">
+                    <div class="input-group">
                             {#if $selectedCategoryStore === 'Transports'}
-                                <label class="form-label">
-                                    Kilomètres en train par an :
-                                    <input type="number" bind:value={userInputs.trainKm} class="form-input" />
-                                </label>
-                                <label class="form-label">
-                                    Kilomètres en avion par an :
-                                    <input type="number" bind:value={userInputs.flightKm} class="form-input" />
-                                </label>
-                                <label class="form-label">
-                                    Type de voiture :
-                                    <select bind:value={userInputs.carType} class="form-input">
-                                        <option value="small">Petite</option>
-                                        <option value="medium">Moyenne</option>
-                                        <option value="big">Grande</option>
-                                    </select>
-                                </label>
-                                <label class="form-label">
-                                    Kilomètres en voiture par an :
-                                    <input type="number" bind:value={userInputs.carKm} class="form-input" />
-                                </label>
-                                <label class="form-label">
-                                    Nombre d'occupants en voiture :
-                                    <input type="number" bind:value={userInputs.carOccupants} class="form-input" min="1" max="9" placeholder="1" />
-                                </label>
-                            {/if}
+                            <label class="form-label">
+                                Kilomètres en train par an :
+                                <input type="number" bind:value={userInputs.trainKm} class="form-input" />
+                            </label>
+                            <label class="form-label">
+                                Kilomètres en avion par an :
+                                <input type="number" bind:value={userInputs.flightKm} class="form-input" />
+                            </label>
+                            <label class="form-label">
+                                Type de voiture :
+                                <select bind:value={userInputs.carType} class="form-input">
+                                    <option value="small">Petite</option>
+                                    <option value="medium">Moyenne</option>
+                                    <option value="big">Grande</option>
+                                </select>
+                            </label>
+                            <label class="form-label">
+                                Kilomètres en voiture par an :
+                                <input type="number" bind:value={userInputs.carKm} class="form-input" />
+                            </label>
+                            <label class="form-label">
+                                Nombre d'occupants en voiture :
+                                <input type="number" bind:value={userInputs.carOccupants} class="form-input" min="1" max="9" placeholder="1" />
+                            </label>
+                        {/if}
 
                             {#if $selectedCategoryStore === 'Logement_electromenagers'}
-                                <label class="form-label">
-                                    Nombre d'occupants dans le logement :
-                                    <input type="number" bind:value={userInputs.homeOccupants} class="form-input" min="1" placeholder="1" />
-                                </label>
-                                <label class="form-label">
-                                    Surface du logement (m²) :
-                                    <input type="number" bind:value={userInputs.homeSize} class="form-input" min="1" placeholder="50" />
-                                </label>
-                                <label class="form-label">
-                                    Consommation électrique annuelle (kWh) :
-                                    <input type="number" bind:value={userInputs.electricityKwh} class="form-input" />
-                                </label>
-                                <label class="form-label">
-                                    Consommation de gaz annuelle (kWh) :
-                                    <input type="number" bind:value={userInputs.gasKwh} class="form-input" />
-                                </label>
-                                <label class="form-label">
-                                    Type de logement :
-                                    <select bind:value={userInputs.housingType} class="form-input">
-                                        <option value="apartment">Appartement</option>
-                                        <option value="house">Maison</option>
-                                    </select>
-                                </label>
-                                <label class="form-label">
-                                    Nombre d'appareils électroménagers :
-                                    <input type="number" bind:value={userInputs.applianceCount} class="form-input" min="0" />
-                                </label>
-                                <label class="form-label">
-                                    Nombre d'appareils électroniques :
-                                    <input type="number" bind:value={userInputs.electronicCount} class="form-input" min="0" />
-                                </label>
-                            {/if}
+                            <label class="form-label">
+                                Nombre d'occupants dans le logement :
+                                <input type="number" bind:value={userInputs.homeOccupants} class="form-input" min="1" placeholder="1" />
+                            </label>
+                            <label class="form-label">
+                                Surface du logement (m²) :
+                                <input type="number" bind:value={userInputs.homeSize} class="form-input" min="1" placeholder="50" />
+                            </label>
+                            <label class="form-label">
+                                Consommation électrique annuelle (kWh) :
+                                <input type="number" bind:value={userInputs.electricityKwh} class="form-input" />
+                            </label>
+                            <label class="form-label">
+                                Consommation de gaz annuelle (kWh) :
+                                <input type="number" bind:value={userInputs.gasKwh} class="form-input" />
+                            </label>
+                            <label class="form-label">
+                                Type de logement :
+                                <select bind:value={userInputs.housingType} class="form-input">
+                                    <option value="apartment">Appartement</option>
+                                    <option value="house">Maison</option>
+                                </select>
+                            </label>
+                            <label class="form-label">
+                                Nombre d'appareils électroménagers :
+                                <input type="number" bind:value={userInputs.applianceCount} class="form-input" min="0" />
+                            </label>
+                            <label class="form-label">
+                                Nombre d'appareils électroniques :
+                                <input type="number" bind:value={userInputs.electronicCount} class="form-input" min="0" />
+                            </label>
+                        {/if}
 
                             {#if $selectedCategoryStore === 'Alimentation'}
-                                <label class="form-label">
-                                    Consommation annuelle de viande rouge (kg) :
-                                    <input type="number" bind:value={userInputs.redMeatKg} class="form-input" min="0" />
-                                </label>
-                                <label class="form-label">
-                                    Consommation annuelle de viande blanche (kg) :
-                                    <input type="number" bind:value={userInputs.whiteMeatKg} class="form-input" min="0" />
-                                </label>
-                                <label class="form-label">
-                                    Consommation annuelle de porc (kg) :
-                                    <input type="number" bind:value={userInputs.porkKg} class="form-input" min="0" />
-                                </label>
-                                <label class="form-label">
-                                    Achats en vrac :
-                                    <select bind:value={userInputs.bulkPurchase} class="form-input">
-                                        <option value="none">Jamais</option>
-                                        <option value="partial">Parfois</option>
-                                        <option value="total">Toujours</option>
-                                    </select>
-                                </label>
+                            <label class="form-label">
+                                Consommation annuelle de viande rouge (kg) :
+                                <input type="number" bind:value={userInputs.redMeatKg} class="form-input" min="0" />
+                            </label>
+                            <label class="form-label">
+                                Consommation annuelle de viande blanche (kg) :
+                                <input type="number" bind:value={userInputs.whiteMeatKg} class="form-input" min="0" />
+                            </label>
+                            <label class="form-label">
+                                Consommation annuelle de porc (kg) :
+                                <input type="number" bind:value={userInputs.porkKg} class="form-input" min="0" />
+                            </label>
+                            <label class="form-label">
+                                Achats en vrac :
+                                <select bind:value={userInputs.bulkPurchase} class="form-input">
+                                    <option value="none">Jamais</option>
+                                    <option value="partial">Parfois</option>
+                                    <option value="total">Toujours</option>
+                                </select>
+                            </label>
                                 <label class="form-label">
                                     Achats en circuits courts :
                                     <select bind:value={userInputs.shortCircuit} class="form-input">
                                         <option value="none">Rarement ou jamais</option>
                                         <option value="partial">Parfois (environ 50%)</option>
                                         <option value="majority">Majoritairement (>80%)</option>
-                                    </select>
-                                </label>
-                            {/if}
+                                </select>
+                            </label>
+                        {/if}
 
                             {#if $selectedCategoryStore === 'Vetements'}
-                                <label class="form-label">
-                                    Nombre de grands vêtements achetés par an :
-                                    <input type="number" bind:value={userInputs.largeItems} class="form-input" min="0" />
-                                </label>
-                                <label class="form-label">
-                                    Nombre de petits vêtements achetés par an :
-                                    <input type="number" bind:value={userInputs.smallItems} class="form-input" min="0" />
-                                </label>
-                                <label class="form-label">
-                                    Origine principale des vêtements :
-                                    <select bind:value={userInputs.origin} class="form-input">
-                                        <option value="france">France</option>
-                                        <option value="autre">Autre pays</option>
+                            <label class="form-label">
+                                Nombre de grands vêtements achetés par an :
+                                <input type="number" bind:value={userInputs.largeItems} class="form-input" min="0" />
+                            </label>
+                            <label class="form-label">
+                                Nombre de petits vêtements achetés par an :
+                                <input type="number" bind:value={userInputs.smallItems} class="form-input" min="0" />
+                            </label>
+                            <label class="form-label">
+                                Origine principale des vêtements :
+                                <select bind:value={userInputs.origin} class="form-input">
+                                    <option value="france">France</option>
+                                    <option value="autre">Autre pays</option>
       </select>
-                                </label>
-                            {/if}
+                            </label>
+                        {/if}
 
                             {#if $selectedCategoryStore === 'Numerique'}
                                 <label class="form-label">
@@ -457,65 +604,131 @@
                                 </p>
                             {/if}
                             
-                        </div>
-
-                        <button class="calculate-button" on:click={calculateEmissions}>
-                            Calculer la catégorie
-                        </button>
-                    {/if}
-
-                    <div class="results-section">
-                        <h3 class="title">Résumé des émissions</h3>
-                        {#each Object.entries(categoryEmissions) as [category, emissions]}
-                            <div class="result-card" style="--progress: {Math.min((emissions / totalGlobalEmissions) * 100, 100)}%">
-                                <span>
-                                    {category.replace('_', ' ')}
-                                    {#if category === 'Services_communs'}
-                                        <span class="info-text">(Services publics, infrastructures, etc.)</span>
-                                    {/if}
-                                </span>
-                                <div>
-                                    <span>{emissions.toFixed(2)} kg CO2e</span>
-                                    {#if emissions > 0 && category !== 'Services_communs'}
-                                        <button class="reset-button" on:click={() => resetCategory(category as keyof CarbonData)}>
-                                            ✕
-                                        </button>
-                                    {/if}
-                                </div>
-                            </div>
-                        {/each}
-
-                        <div class="total-card">
-                            <div class="total-card-content">
-                                <span>Total Global</span>
-                                <span>{totalGlobalEmissions.toFixed(2)} kg CO2e</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            {:else}
-                <div class="loading-spinner"></div>
-            {/if}
-        </div>
     </div>
 
-    <style>
-        /* Animations optionnelles */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+                    <button class="calculate-button" on:click={calculateEmissions}>
+                        Calculer la catégorie
+                    </button>
+                {/if}
 
-        .animate-fade-in {
-            animation: fadeIn 0.3s ease-out forwards;
-        }
+                <div class="monthly-summary">
+                    {#if getAvailableYears().length > 0}
+                        <div class="yearly-summary">
+                            {#each getAvailableYears() as year}
+                                <div class="year-section">
+                                    <h3 class="year-title">
+                                        Année {year}
+                                        <span class="yearly-total">
+                                            {calculateYearlyTotal(year).toFixed(2)} kg CO2e
+                                        </span>
+                                    </h3>
+                                    <div class="year-progress-container">
+                                        {#each Object.entries(getYearlyTotalsByCategory(year)) as [category, value]}
+                                            <div 
+                                                class="progress-bar" 
+                                                style="--width: {(value / calculateYearlyTotal(year) * 100)}%; --color: {getCategoryColor(category)};"
+                                                title="{category.replace('_', ' ')}: {value.toFixed(2)} kg CO2e"
+                                            ></div>
+                                        {/each}
+                                        <div 
+                                            class="progress-bar"
+                                            style="--width: {(1500 * 12 / calculateYearlyTotal(year) * 100)}%; --color: {getCategoryColor('Services_communs')};"
+                                            title="Services communs: {(1500 * 12).toFixed(2)} kg CO2e"
+                                        ></div>
+                                    </div>
 
-        .calculator-container {
-            min-height: 100vh;
+                                    <div class="months-container">
+                                        {#each getMonthsForYear(year) as month}
+                                            <div class="monthly-card">
+                                                <div class="month-header">
+                                                    <div class="month-info">
+                                                        <span class="month-label">
+                                                            {new Date(month).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                                                            {#if month === selectedMonth}
+                                                                <span class="active-month-indicator">Mois sélectionné</span>
+                                                            {/if}
+                                                        </span>
+                                                        <span class="month-value">
+                                                            {monthlyTotals[month].toFixed(2)} kg CO2e
+                                                        </span>
+                                                    </div>
+                                                    <button 
+                                                        class="view-month-button"
+                                                        on:click={() => toggleMonthDetails(month)}
+                                                    >
+                                                        {expandedMonth === month ? 'Masquer détails' : 'Voir détails'}
+                                                    </button>
+                                                </div>
+                                                
+                                                <div class="progress-container">
+                                                    {#each Object.entries(resultsByMonth[month] || {}) as [category, value]}
+                                                        <div 
+                                                            class="progress-bar" 
+                                                            style="--width: {(value / monthlyTotals[month] * 100)}%; --color: {getCategoryColor(category)};"
+                                                            title="{category.replace('_', ' ')}: {value.toFixed(2)} kg CO2e"
+                                                        ></div>
+                                                    {/each}
+                                                    <div 
+                                                        class="progress-bar"
+                                                        style="--width: {(1500 / monthlyTotals[month] * 100)}%; --color: {getCategoryColor('Services_communs')};"
+                                                        title="Services communs: 1500 kg CO2e"
+                                                    ></div>
+                                                </div>
+                                                
+                                                {#if expandedMonth === month}
+                                                    <div class="month-details" transition:slide={{ duration: 300 }}>
+                                                        <div class="emissions-breakdown">
+                                                            {#each Object.entries(resultsByMonth[month] || {}) as [category, value]}
+                                                                <div class="category-row">
+                                                                    <div class="category-label">
+                                                                        <div class="color-indicator" style="background: {getCategoryColor(category)}"></div>
+                                                                        <span>{category.replace('_', ' ')}</span>
+                                                                    </div>
+                                                                    <span>{value.toFixed(2)} kg CO2e</span>
+                                                                </div>
+                                                            {/each}
+                                                            <div class="category-row">
+                                                                <div class="category-label">
+                                                                    <div class="color-indicator" style="background: {getCategoryColor('Services_communs')}"></div>
+                                                                    <span>Services communs</span>
+                                                                </div>
+                                                                <span>1500.00 kg CO2e</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                {/if}
+                                            </div>
+                                        {/each}
+                                    </div>
+                                </div>
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
+            </div>
+        {:else}
+            <div class="loading-spinner"></div>
+        {/if}
+    </div>
+</div> 
+
+<style>
+    /* Animations optionnelles */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+    }
+
+    .calculator-container {
+        min-height: 100vh;
             background: linear-gradient(135deg, 
                 hsl(142, calc(100% * var(--color-intensity)), calc(97% - (40% * (1 - var(--color-intensity))))) 0%, 
                 hsl(170, calc(100% * var(--color-intensity)), calc(95% - (80% * (1 - var(--color-intensity))))) 100%);
-            padding: 2rem 1rem;
+        padding: 2rem 1rem;
             color: hsl(162, 10%, calc(20% + (60% * var(--color-intensity))));
         }
 
@@ -565,19 +778,19 @@
         .form-input:focus, .category-select:focus {
             border-color: hsl(162, calc(60% * var(--color-intensity)), 45%);
             outline: none;
-        }
+    }
 
-        .result-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: var(--progress);
+    .result-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: var(--progress);
             background: linear-gradient(to right, 
                 hsla(162, calc(95% * var(--color-intensity)), 30%, 0.1),
                 hsla(162, calc(95% * var(--color-intensity)), 30%, 0.2));
-            z-index: -1;
+        z-index: -1;
             transition: all 0.3s ease-in-out;
         }
 
@@ -694,5 +907,190 @@
             max-width: 300px;
             margin: 0 auto;
         }
-    </style> 
+
+        input[type="month"] {
+            padding: 0.5rem;
+            border: 1px solid hsl(162, calc(30% * var(--color-intensity)), 75%);
+            border-radius: 0.25rem;
+            background: white;
+            color: hsl(162, 10%, 15%);
+            font-size: 0.9rem;
+            width: 200px;
+        }
+
+        .monthly-summary {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid hsl(162, calc(30% * var(--color-intensity)), 90%);
+        }
+
+        .monthly-totals {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
+
+        .monthly-card {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border: 1px solid hsl(162, calc(30% * var(--color-intensity)), 85%);
+            transition: all 0.3s ease;
+        }
+
+        .month-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .month-label {
+            font-weight: 500;
+            color: hsl(162, 10%, 30%);
+        }
+
+        .month-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: hsl(162, calc(85% * var(--color-intensity)), 32%);
+        }
+
+        .current-month {
+            border: 2px solid hsl(162, calc(85% * var(--color-intensity)), 32%);
+            background: hsl(162, calc(85% * var(--color-intensity)), 95%);
+        }
+
+        .month-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .view-month-button {
+            padding: 0.25rem 0.75rem;
+            background: hsl(162, calc(85% * var(--color-intensity)), 32%);
+            color: white;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+        }
+
+        .view-month-button:hover {
+            background: hsl(162, calc(85% * var(--color-intensity)), 28%);
+        }
+
+        .month-details {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid hsl(162, calc(30% * var(--color-intensity)), 90%);
+        }
+
+        .emissions-breakdown {
+            margin-bottom: 1rem;
+        }
+
+        .category-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+            color: hsl(162, 10%, 30%);
+        }
+
+        .category-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .color-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .month-total {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 0.5rem;
+            border-top: 1px solid hsl(162, calc(30% * var(--color-intensity)), 90%);
+            font-weight: 500;
+            color: hsl(162, calc(85% * var(--color-intensity)), 32%);
+    }
+
+    .progress-container {
+        margin-top: 1rem;
+        height: 8px;
+        background: #f0f0f0;
+        border-radius: 4px;
+        overflow: hidden;
+        display: flex;
+    }
+
+    .progress-bar {
+        height: 100%;
+        width: var(--width);
+        background: var(--color);
+        transition: width 0.3s ease;
+    }
+
+    .active-month-indicator {
+        font-size: 0.8rem;
+        color: hsl(162, calc(85% * var(--color-intensity)), 32%);
+        font-weight: normal;
+        margin-left: 0.5rem;
+    }
+
+    .yearly-summary {
+        margin-bottom: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    .year-section {
+        padding: 1rem;
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+    }
+
+    .year-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: hsl(162, calc(85% * var(--color-intensity)), 32%);
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .year-progress-container {
+        height: 12px;
+        background: #f0f0f0;
+        border-radius: 6px;
+        overflow: hidden;
+        display: flex;
+        margin-top: 1rem;
+    }
+
+    .yearly-total {
+        font-size: 1.2rem;
+        color: hsl(162, calc(85% * var(--color-intensity)), 28%);
+        background: hsl(162, calc(85% * var(--color-intensity)), 95%);
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+    }
+
+    .months-container {
+        margin-top: 1.5rem;
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+</style> 
 {/if} 
