@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { user } from '../stores';
+    import { writable } from 'svelte/store';
     
     interface CarbonData {
         Transports: {
@@ -68,7 +69,7 @@
     }
 
     let carbonData: CarbonData | null = null;
-    let selectedCategory: keyof CarbonData | null = null;
+    const selectedCategoryStore = writable<keyof CarbonData | null>(null);
     let userInputs: Record<string, number | string> = {};
     let categoryEmissions: Record<string, number> = {
         Transports: 0,
@@ -83,6 +84,39 @@
     $: totalGlobalEmissions = Object.values(categoryEmissions).reduce((sum, val) => sum + val, 0);
     $: colorIntensity = Math.max(0, Math.min(1, 1 - (totalGlobalEmissions / 10000)));
 
+    // Stocker les inputs sauvegardés par catégorie
+    let savedInputsByCategory: Record<string, any> = {};
+
+    // Effet pour mettre à jour les inputs quand la catégorie change
+    $: if ($selectedCategoryStore && savedInputsByCategory[$selectedCategoryStore]) {
+        userInputs = { ...savedInputsByCategory[$selectedCategoryStore] };
+    }
+
+    async function loadUserResults() {
+        try {
+            const response = await fetch('http://localhost:8080/api/results', {
+                headers: {
+                    'Authorization': localStorage.getItem('token') || '',
+                }
+            });
+            if (response.ok) {
+                const results = await response.json();
+                if (Array.isArray(results)) {
+                    results.forEach((result: any) => {
+                        if (result && result.category && typeof result.value === 'number') {
+                            categoryEmissions[result.category] = result.value;
+                            if (result.inputs) {
+                                savedInputsByCategory[result.category] = result.inputs;
+                            }
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Erreur lors du chargement des résultats:', error);
+        }
+    }
+
     onMount(async () => {
         if (!$user) {
             window.location.href = '/';
@@ -90,15 +124,20 @@
         }
 
         try {
-            const response = await fetch('http://localhost:8080/api/factors');
-            carbonData = await response.json();
+            await Promise.all([
+                loadUserResults(),
+                (async () => {
+                    const response = await fetch('http://localhost:8080/api/factors');
+                    carbonData = await response.json();
+                })()
+            ]);
         } catch (error) {
             console.error('Erreur lors du chargement des données:', error);
         }
     });
 
     async function calculateEmissions() {
-        if (!selectedCategory) return;
+        if (!$selectedCategoryStore) return;
 
         try {
             const response = await fetch('http://localhost:8080/api/calculate', {
@@ -108,16 +147,16 @@
                     'Authorization': localStorage.getItem('token') || '',
                 },
                 body: JSON.stringify({
-                    category: selectedCategory,
+                    category: $selectedCategoryStore,
                     userInputs: userInputs,
                 }),
             });
 
             const data = await response.json();
-            categoryEmissions[selectedCategory] = data.result;
+            categoryEmissions[$selectedCategoryStore] = data.result;
 
             if ($user) {
-                await saveResult(selectedCategory, data.result, userInputs);
+                await saveResult($selectedCategoryStore, data.result, userInputs);
             }
         } catch (error) {
             console.error('Erreur lors du calcul:', error);
@@ -145,10 +184,10 @@
 
     function resetCategory(category: keyof CarbonData) {
         categoryEmissions[category] = 0;
-        if (category === selectedCategory) {
+        if (category === $selectedCategoryStore) {
             userInputs = {};
         }
-  }
+    }
 
     function handleLogout() {
         localStorage.removeItem('token');
@@ -176,7 +215,7 @@
                         Catégorie :
       <select 
                             class="category-select"
-                            bind:value={selectedCategory}
+                            bind:value={$selectedCategoryStore}
                         >
                             <option value={null}>Choisir une catégorie</option>
                             <option value="Transports">🚗 Transports</option>
@@ -188,9 +227,9 @@
                         </select>
                     </label>
 
-                    {#if selectedCategory}
+                    {#if $selectedCategoryStore}
                         <div class="input-group">
-                            {#if selectedCategory === 'Transports'}
+                            {#if $selectedCategoryStore === 'Transports'}
                                 <label class="form-label">
                                     Kilomètres en train par an :
                                     <input type="number" bind:value={userInputs.trainKm} class="form-input" />
@@ -217,7 +256,7 @@
                                 </label>
                             {/if}
 
-                            {#if selectedCategory === 'Logement_electromenagers'}
+                            {#if $selectedCategoryStore === 'Logement_electromenagers'}
                                 <label class="form-label">
                                     Nombre d'occupants dans le logement :
                                     <input type="number" bind:value={userInputs.homeOccupants} class="form-input" min="1" placeholder="1" />
@@ -251,7 +290,7 @@
                                 </label>
                             {/if}
 
-                            {#if selectedCategory === 'Alimentation'}
+                            {#if $selectedCategoryStore === 'Alimentation'}
                                 <label class="form-label">
                                     Consommation annuelle de viande rouge (kg) :
                                     <input type="number" bind:value={userInputs.redMeatKg} class="form-input" min="0" />
@@ -282,7 +321,7 @@
                                 </label>
                             {/if}
 
-                            {#if selectedCategory === 'Vetements'}
+                            {#if $selectedCategoryStore === 'Vetements'}
                                 <label class="form-label">
                                     Nombre de grands vêtements achetés par an :
                                     <input type="number" bind:value={userInputs.largeItems} class="form-input" min="0" />
@@ -300,7 +339,7 @@
                                 </label>
                             {/if}
 
-                            {#if selectedCategory === 'Numerique'}
+                            {#if $selectedCategoryStore === 'Numerique'}
                                 <label class="form-label">
                                     Nombre de recherches Google par jour :
                                     <input 
@@ -362,7 +401,7 @@
                                 </p>
                             {/if}
 
-                            {#if selectedCategory === 'Consommation'}
+                            {#if $selectedCategoryStore === 'Consommation'}
                                 <label class="form-label">
                                     Nombre de commandes Amazon par an :
                                     <input 

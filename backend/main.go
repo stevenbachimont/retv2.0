@@ -4,6 +4,7 @@ import (
 	"carbone-app/config"
 	"carbone-app/models"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -461,33 +462,100 @@ func login(c *gin.Context) {
 func saveResult(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 	userID, _ := c.Get("userID")
-	var result models.Result
-	if err := c.BindJSON(&result); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid input"})
+
+	var input struct {
+		Category string         `json:"category"`
+		Value    float64        `json:"value"`
+		Inputs   map[string]any `json:"inputs"`
+	}
+
+	if err := c.BindJSON(&input); err != nil {
+		log.Printf("SaveResult - Erreur de binding: %v", err)
+		c.JSON(400, gin.H{"error": "Données invalides"})
 		return
 	}
 
-	result.ID = uuid.New().String()
-	result.UserID = userID.(string)
-	result.CreatedAt = time.Now()
+	log.Printf("SaveResult - Tentative de sauvegarde pour userID: %s", userID)
+	log.Printf("SaveResult - Données reçues: %+v", input)
 
-	_, err := db.Exec(`
+	resultID := uuid.New().String()
+	query := `
 		INSERT INTO results (id, user_id, category, value, inputs, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
-	`, result.ID, result.UserID, result.Category, result.Value, result.Inputs, result.CreatedAt)
+	`
+
+	log.Printf("SaveResult - UserID: %s", userID)
+	log.Printf("SaveResult - Category: %s", input.Category)
+	log.Printf("SaveResult - Value: %f", input.Value)
+	log.Printf("SaveResult - Inputs: %+v", input.Inputs)
+
+	inputsJSON, err := json.Marshal(input.Inputs)
+	if err != nil {
+		log.Printf("SaveResult - Erreur de marshalling des inputs: %v", err)
+		c.JSON(500, gin.H{"error": "Erreur lors de la sauvegarde"})
+		return
+	}
+	log.Printf("SaveResult - InputsJSON: %s", string(inputsJSON))
+
+	_, err = db.Exec(query,
+		resultID,
+		userID,
+		input.Category,
+		input.Value,
+		inputsJSON,
+		time.Now(),
+	)
 
 	if err != nil {
-		c.JSON(500, gin.H{"error": "Could not save result"})
+		log.Printf("SaveResult - Erreur d'insertion: %v", err)
+		c.JSON(500, gin.H{"error": "Erreur lors de la sauvegarde"})
 		return
 	}
 
-	c.JSON(200, result)
+	log.Printf("SaveResult - Sauvegarde réussie pour resultID: %s", resultID)
+	c.JSON(200, gin.H{
+		"id":      resultID,
+		"message": "Résultat sauvegardé avec succès",
+	})
 }
 
 func getResults(c *gin.Context) {
-	_, _ = c.Get("userID")
-	// TODO: Récupérer les résultats depuis la base de données
-	c.JSON(200, []models.Result{})
+	userID, _ := c.Get("userID")
+	db := c.MustGet("db").(*sql.DB)
+
+	// Requête modifiée pour obtenir les résultats les plus récents par catégorie
+	rows, err := db.Query(`
+		WITH RankedResults AS (
+			SELECT id, category, value, inputs, created_at,
+				   ROW_NUMBER() OVER (PARTITION BY category ORDER BY created_at DESC) as rn
+			FROM results 
+			WHERE user_id = $1
+		)
+		SELECT id, category, value, inputs, created_at
+		FROM RankedResults
+		WHERE rn = 1
+		ORDER BY created_at DESC
+	`, userID)
+
+	if err != nil {
+		log.Printf("Erreur lors de la récupération des résultats: %v", err)
+		c.JSON(500, gin.H{"error": "Impossible de récupérer les résultats"})
+		return
+	}
+	defer rows.Close()
+
+	var results []models.Result
+	for rows.Next() {
+		var result models.Result
+		err := rows.Scan(&result.ID, &result.Category, &result.Value, &result.Inputs, &result.CreatedAt)
+		if err != nil {
+			log.Printf("Erreur lors du scan des résultats: %v", err)
+			continue
+		}
+		results = append(results, result)
+	}
+
+	c.JSON(200, results)
 }
 
 func validateToken(tokenStr string) (string, error) {
