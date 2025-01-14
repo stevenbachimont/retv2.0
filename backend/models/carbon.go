@@ -91,5 +91,6 @@ type Result struct {
 	Category  string      `json:"category"`
 	Value     float64     `json:"value"`
 	Inputs    interface{} `json:"inputs"`
+	Month     time.Time   `json:"month"`
 	CreatedAt time.Time   `json:"created_at"`
 }

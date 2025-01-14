@@ -467,6 +467,7 @@ func saveResult(c *gin.Context) {
 		Category string         `json:"category"`
 		Value    float64        `json:"value"`
 		Inputs   map[string]any `json:"inputs"`
+		Month    string         `json:"month"` // Format: "2024-01"
 	}
 
 	if err := c.BindJSON(&input); err != nil {
@@ -475,19 +476,12 @@ func saveResult(c *gin.Context) {
 		return
 	}
 
-	log.Printf("SaveResult - Tentative de sauvegarde pour userID: %s", userID)
-	log.Printf("SaveResult - Données reçues: %+v", input)
-
-	resultID := uuid.New().String()
-	query := `
-		INSERT INTO results (id, user_id, category, value, inputs, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`
-
-	log.Printf("SaveResult - UserID: %s", userID)
-	log.Printf("SaveResult - Category: %s", input.Category)
-	log.Printf("SaveResult - Value: %f", input.Value)
-	log.Printf("SaveResult - Inputs: %+v", input.Inputs)
+	monthDate, err := time.Parse("2006-01", input.Month)
+	if err != nil {
+		log.Printf("SaveResult - Erreur de parsing du mois: %v", err)
+		c.JSON(400, gin.H{"error": "Format de mois invalide"})
+		return
+	}
 
 	inputsJSON, err := json.Marshal(input.Inputs)
 	if err != nil {
@@ -495,24 +489,35 @@ func saveResult(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Erreur lors de la sauvegarde"})
 		return
 	}
-	log.Printf("SaveResult - InputsJSON: %s", string(inputsJSON))
 
+	// Utiliser UPSERT pour mettre à jour ou insérer
+	query := `
+		INSERT INTO results (id, user_id, category, value, inputs, month, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (user_id, category, month)
+		DO UPDATE SET
+			value = EXCLUDED.value,
+			inputs = EXCLUDED.inputs,
+			created_at = EXCLUDED.created_at
+	`
+
+	resultID := uuid.New().String()
 	_, err = db.Exec(query,
 		resultID,
 		userID,
 		input.Category,
 		input.Value,
 		inputsJSON,
+		monthDate,
 		time.Now(),
 	)
 
 	if err != nil {
-		log.Printf("SaveResult - Erreur d'insertion: %v", err)
+		log.Printf("SaveResult - Erreur d'insertion/update: %v", err)
 		c.JSON(500, gin.H{"error": "Erreur lors de la sauvegarde"})
 		return
 	}
 
-	log.Printf("SaveResult - Sauvegarde réussie pour resultID: %s", resultID)
 	c.JSON(200, gin.H{
 		"id":      resultID,
 		"message": "Résultat sauvegardé avec succès",
@@ -523,18 +528,19 @@ func getResults(c *gin.Context) {
 	userID, _ := c.Get("userID")
 	db := c.MustGet("db").(*sql.DB)
 
-	// Requête modifiée pour obtenir les résultats les plus récents par catégorie
+	log.Printf("GetResults - Récupération des résultats pour userID: %s", userID)
+
 	rows, err := db.Query(`
-		WITH RankedResults AS (
-			SELECT id, category, value, inputs, created_at,
-				   ROW_NUMBER() OVER (PARTITION BY category ORDER BY created_at DESC) as rn
-			FROM results 
-			WHERE user_id = $1
-		)
-		SELECT id, category, value, inputs, created_at
-		FROM RankedResults
-		WHERE rn = 1
-		ORDER BY created_at DESC
+		SELECT 
+			id,
+			category,
+			value,
+			inputs,
+			month,
+			created_at
+		FROM results 
+		WHERE user_id = $1
+		ORDER BY month DESC, category
 	`, userID)
 
 	if err != nil {
@@ -547,14 +553,16 @@ func getResults(c *gin.Context) {
 	var results []models.Result
 	for rows.Next() {
 		var result models.Result
-		err := rows.Scan(&result.ID, &result.Category, &result.Value, &result.Inputs, &result.CreatedAt)
+		err := rows.Scan(&result.ID, &result.Category, &result.Value, &result.Inputs, &result.Month, &result.CreatedAt)
 		if err != nil {
 			log.Printf("Erreur lors du scan des résultats: %v", err)
 			continue
 		}
+		log.Printf("GetResults - Résultat trouvé: %+v", result)
 		results = append(results, result)
 	}
 
+	log.Printf("GetResults - Nombre total de résultats: %d", len(results))
 	c.JSON(200, results)
 }
 
