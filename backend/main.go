@@ -359,56 +359,46 @@ func authMiddleware() gin.HandlerFunc {
 func register(c *gin.Context) {
 	var input struct {
 		Email    string `json:"email" binding:"required"`
+		Username string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
 
 	if err := c.BindJSON(&input); err != nil {
-		log.Printf("Register - Erreur de binding: %v", err)
 		c.JSON(400, gin.H{"error": "Email et mot de passe requis"})
 		return
 	}
 
-	log.Printf("Register - Tentative d'inscription pour: %s", input.Email)
-	log.Printf("Register - Mot de passe reçu (len=%d): %s", len(input.Password), input.Password)
-
-	// Vérifier si l'email existe déjà
 	db := c.MustGet("db").(*sql.DB)
-	var existingID string
-	err := db.QueryRow("SELECT id FROM users WHERE email = $1", input.Email).Scan(&existingID)
-	if err == nil {
-		log.Printf("Register - Email déjà utilisé: %s", input.Email)
-		c.JSON(400, gin.H{"error": "Cet email est déjà utilisé"})
-		return
-	}
 
-	// Créer le nouvel utilisateur
+	// Hash du mot de passe
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Printf("Register - Erreur de hachage: %v", err)
-		c.JSON(500, gin.H{"error": "Erreur serveur"})
-		return
-	}
-
-	userID := uuid.New().String()
-	_, err = db.Exec(`
-		INSERT INTO users (id, email, password)
-		VALUES ($1, $2, $3)
-	`, userID, input.Email, string(hashedPassword))
-
-	if err != nil {
-		log.Printf("Register - Erreur d'insertion: %v", err)
+		log.Printf("Erreur lors du hashage du mot de passe: %v", err)
 		c.JSON(500, gin.H{"error": "Impossible de créer l'utilisateur"})
 		return
 	}
 
-	log.Printf("Register - Inscription réussie pour: %s (ID: %s)", input.Email, userID)
+	userID := uuid.New().String()
+	log.Printf("Tentative d'insertion utilisateur: ID=%s, Email=%s, Username=%s", userID, input.Email, input.Username)
+
+	_, err = db.Exec(`
+		INSERT INTO users (id, email, username, password)
+		VALUES ($1, $2, $3, $4)
+	`, userID, input.Email, input.Username, string(hashedPassword))
+
+	if err != nil {
+		log.Printf("Erreur lors de l'insertion en base: %v", err)
+		c.JSON(500, gin.H{"error": "Impossible de créer l'utilisateur"})
+		return
+	}
 
 	token := generateToken(userID)
 	c.JSON(200, gin.H{
 		"token": token,
 		"user": gin.H{
-			"id":    userID,
-			"email": input.Email,
+			"id":       userID,
+			"email":    input.Email,
+			"username": input.Username,
 		},
 	})
 }
@@ -431,8 +421,8 @@ func login(c *gin.Context) {
 	var hashedPassword string
 
 	// Ajout de logs pour déboguer la requête SQL
-	query := "SELECT id, email, password FROM users WHERE email = $1"
-	err := db.QueryRow(query, credentials.Email).Scan(&user.ID, &user.Email, &hashedPassword)
+	query := "SELECT id, email, username, password FROM users WHERE email = $1"
+	err := db.QueryRow(query, credentials.Email).Scan(&user.ID, &user.Email, &user.Username, &hashedPassword)
 	if err != nil {
 		log.Printf("Login - Utilisateur non trouvé: %v", err)
 		c.JSON(401, gin.H{"error": "Email ou mot de passe incorrect"})
@@ -624,7 +614,7 @@ func verifyToken(c *gin.Context) {
 	// Récupérer l'utilisateur depuis la base de données
 	db := c.MustGet("db").(*sql.DB)
 	var user models.User
-	err = db.QueryRow("SELECT id, email FROM users WHERE id = $1", userID).Scan(&user.ID, &user.Email)
+	err = db.QueryRow("SELECT id, email, username FROM users WHERE id = $1", userID).Scan(&user.ID, &user.Email, &user.Username)
 	if err != nil {
 		log.Printf("Erreur de recherche utilisateur: %v", err)
 		c.JSON(401, gin.H{"error": "User not found"})

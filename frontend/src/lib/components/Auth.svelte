@@ -1,14 +1,17 @@
 <script lang="ts">
     import { user } from '../stores';
     
-    let email = '';
-    let password = '';
+    let formData = {
+        email: '',
+        password: '',
+        username: ''
+    };
     let isLogin = true;
     let error = '';
 
     async function handleSubmit() {
         error = '';
-        console.log("Submitting:", { email, password, isLogin });
+        console.log("Submitting:", { ...formData, isLogin });
         
         const endpoint = isLogin ? '/api/login' : '/api/register';
         try {
@@ -17,7 +20,7 @@
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify(formData),
             });
             
             console.log("Response:", response);
@@ -47,18 +50,31 @@
     <form on:submit|preventDefault={handleSubmit}>
         <input
             type="email"
-            bind:value={email}
+            bind:value={formData.email}
             placeholder="Email"
             autocomplete="email"
             required
         />
         <input
             type="password"
-            bind:value={password}
+            bind:value={formData.password}
             placeholder="Mot de passe"
             autocomplete="current-password"
             required
         />
+        {#if !isLogin}
+            <div class="form-group">
+                <label for="username">Pseudonyme</label>
+                <input
+                    type="text"
+                    id="username"
+                    bind:value={formData.username}
+                    required
+                    minlength="3"
+                    maxlength="50"
+                />
+            </div>
+        {/if}
         <button type="submit">
             {isLogin ? 'Se connecter' : 'S\'inscrire'}
         </button>

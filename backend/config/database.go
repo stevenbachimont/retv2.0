@@ -2,6 +2,7 @@ package config
 
 import (
 	"database/sql"
+	"log"
 
 	_ "github.com/lib/pq"
 )
@@ -20,11 +21,21 @@ func InitDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	// Créer la table users
+	// Supprimer les tables existantes
+	_, err = db.Exec(`
+		DROP TABLE IF EXISTS results CASCADE;
+		DROP TABLE IF EXISTS users CASCADE;
+	`)
+	if err != nil {
+		log.Printf("Erreur lors de la suppression des tables: %v", err)
+	}
+
+	// Créer la table users avec la nouvelle structure
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS users (
 			id UUID PRIMARY KEY,
 			email VARCHAR(255) UNIQUE NOT NULL,
+			username VARCHAR(50) NOT NULL,
 			password VARCHAR(255) NOT NULL
 		)
 	`)
@@ -32,7 +43,7 @@ func InitDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	// Créer la table results avec le champ month
+	// Créer la table results
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS results (
 			id UUID PRIMARY KEY,

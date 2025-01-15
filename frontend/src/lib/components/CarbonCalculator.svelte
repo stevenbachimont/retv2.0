@@ -3,6 +3,7 @@
     import { user } from '../stores';
     import { writable } from 'svelte/store';
     import { slide } from 'svelte/transition';
+    import Navbar from './Navbar.svelte';
     
     interface CarbonData {
         Transports: {
@@ -339,33 +340,29 @@
         return Object.keys(monthlyTotals)
             .filter(month => month.startsWith(year))
             .sort((a, b) => b.localeCompare(a));
-    }
+  }
 </script>
 
 {#if $user}
     <div class="calculator-container" style="--color-intensity: {colorIntensity}">
-        <div class="header">
-            <h1 class="title">Suivi mensuel de votre empreinte carbone</h1>
-            <button class="logout-button" on:click={handleLogout}>
-                Déconnexion
-            </button>
-        </div>
+        <Navbar {handleLogout} />
+        
     <div class="calculator-card">
-        <h3 class="title">
-            Saisissez vos données :
-        </h3>
+            <h3 class="title">
+                Saisissez vos données :
+            </h3>
 
         {#if carbonData}
             <div class="form-section">
-                    <label class="form-label">
-                        Mois :
-                        <input 
-                            type="month" 
-                            bind:value={selectedMonth}
-                            max={currentMonth}
-                            class="form-input"
-                        />
-                    </label>
+                        <label class="form-label">
+                            Mois :
+                            <input 
+                                type="month" 
+                                bind:value={selectedMonth}
+                                max={currentMonth}
+                                class="form-input"
+                            />
+                        </label>
 
                 <label class="form-label">
                     Catégorie :
@@ -383,15 +380,15 @@
                     </select>
                 </label>
 
-                    {#if $selectedCategoryStore}
+                        {#if $selectedCategoryStore}
                     <div class="input-group">
-                            {#if $selectedCategoryStore === 'Transports'}
+                                {#if $selectedCategoryStore === 'Transports'}
                             <label class="form-label">
-                                Kilomètres en train :
+                                    Kilomètres en train :
                                 <input type="number" bind:value={userInputs.trainKm} class="form-input" />
                             </label>
                             <label class="form-label">
-                                Kilomètres en avion :
+                                    Kilomètres en avion :
                                 <input type="number" bind:value={userInputs.flightKm} class="form-input" />
                             </label>
                             <label class="form-label">
@@ -403,7 +400,7 @@
                                 </select>
                             </label>
                             <label class="form-label">
-                                Kilomètres en voiture :
+                                    Kilomètres en voiture :
                                 <input type="number" bind:value={userInputs.carKm} class="form-input" />
                             </label>
                             <label class="form-label">
@@ -412,7 +409,7 @@
                             </label>
                         {/if}
 
-                            {#if $selectedCategoryStore === 'Logement_electromenagers'}
+                                {#if $selectedCategoryStore === 'Logement_electromenagers'}
                             <label class="form-label">
                                 Nombre d'occupants dans le logement :
                                 <input type="number" bind:value={userInputs.homeOccupants} class="form-input" min="1" placeholder="1" />
@@ -422,11 +419,11 @@
                                 <input type="number" bind:value={userInputs.homeSize} class="form-input" min="1" placeholder="50" />
                             </label>
                             <label class="form-label">
-                                Consommation électrique mensuelle (kWh) :
+                                    Consommation électrique mensuelle (kWh) :
                                 <input type="number" bind:value={userInputs.electricityKwh} class="form-input" />
                             </label>
                             <label class="form-label">
-                                Consommation de gaz mensuelle (kWh) :
+                                    Consommation de gaz mensuelle (kWh) :
                                 <input type="number" bind:value={userInputs.gasKwh} class="form-input" />
                             </label>
                             <label class="form-label">
@@ -446,17 +443,17 @@
                             </label>
                         {/if}
 
-                            {#if $selectedCategoryStore === 'Alimentation'}
+                                {#if $selectedCategoryStore === 'Alimentation'}
                             <label class="form-label">
-                                Consommation de viande rouge (kg) :
+                                    Consommation de viande rouge (kg) :
                                 <input type="number" bind:value={userInputs.redMeatKg} class="form-input" min="0" />
                             </label>
                             <label class="form-label">
-                                Consommation de viande blanche (kg) :
+                                    Consommation de viande blanche (kg) :
                                 <input type="number" bind:value={userInputs.whiteMeatKg} class="form-input" min="0" />
                             </label>
                             <label class="form-label">
-                                Consommation de porc (kg) :
+                                    Consommation de porc (kg) :
                                 <input type="number" bind:value={userInputs.porkKg} class="form-input" min="0" />
                             </label>
                             <label class="form-label">
@@ -467,23 +464,23 @@
                                     <option value="total">Toujours</option>
                                 </select>
                             </label>
-                                <label class="form-label">
-                                    Achats en circuits courts :
-                                    <select bind:value={userInputs.shortCircuit} class="form-input">
-                                        <option value="none">Rarement ou jamais</option>
-                                        <option value="partial">Parfois (environ 50%)</option>
-                                        <option value="majority">Majoritairement (>80%)</option>
+                                    <label class="form-label">
+                                        Achats en circuits courts :
+                                        <select bind:value={userInputs.shortCircuit} class="form-input">
+                                            <option value="none">Rarement ou jamais</option>
+                                            <option value="partial">Parfois (environ 50%)</option>
+                                            <option value="majority">Majoritairement (>80%)</option>
                                 </select>
                             </label>
                         {/if}
 
-                            {#if $selectedCategoryStore === 'Vetements'}
+                                {#if $selectedCategoryStore === 'Vetements'}
                             <label class="form-label">
-                                Nombre de grands vêtements achetés :
+                                    Nombre de grands vêtements achetés :
                                 <input type="number" bind:value={userInputs.largeItems} class="form-input" min="0" />
                             </label>
                             <label class="form-label">
-                                Nombre de petits vêtements achetés :
+                                    Nombre de petits vêtements achetés :
                                 <input type="number" bind:value={userInputs.smallItems} class="form-input" min="0" />
                             </label>
                             <label class="form-label">
@@ -495,124 +492,124 @@
                             </label>
                         {/if}
 
-                            {#if $selectedCategoryStore === 'Numerique'}
-                                <label class="form-label">
-                                    Nombre de recherches Google par jour :
-                                    <input 
-                                        type="number" 
-                                        bind:value={userInputs.googleSearches} 
-                                        class="form-input"
-                                        min="0"
-                                        placeholder="0"
-                                    />
-                                </label>
-                                <label class="form-label">
-                                    Nombre de prompts ChatGPT par jour :
-                                    <input 
-                                        type="number" 
-                                        bind:value={userInputs.chatgptPrompts} 
-                                        class="form-input"
-                                        min="0"
-                                        placeholder="0"
-                                    />
-                                </label>
-                                
-                                <label class="form-label">
-                                    Achat de smartphone :
-                                    <select bind:value={userInputs.smartphoneType} class="form-input">
-                                        <option value="">Aucun achat</option>
-                                        <option value="small">Petit modèle</option>
-                                        <option value="large">Grand modèle</option>
-                                    </select>
-                                </label>
-
-                                {#if userInputs.smartphoneType}
+                                {#if $selectedCategoryStore === 'Numerique'}
                                     <label class="form-label">
-                                        État du smartphone :
-                                        <select bind:value={userInputs.smartphoneState} class="form-input">
-                                            <option value="new">Neuf</option>
-                                            <option value="used">Occasion</option>
-                                            <option value="old">Gardé depuis 3+ ans</option>
+                                        Nombre de recherches Google par jour :
+                                        <input 
+                                            type="number" 
+                                            bind:value={userInputs.googleSearches} 
+                                            class="form-input"
+                                            min="0"
+                                            placeholder="0"
+                                        />
+                                    </label>
+                                    <label class="form-label">
+                                        Nombre de prompts ChatGPT par jour :
+                                        <input 
+                                            type="number" 
+                                            bind:value={userInputs.chatgptPrompts} 
+                                            class="form-input"
+                                            min="0"
+                                            placeholder="0"
+                                        />
+                                    </label>
+                                    
+                                    <label class="form-label">
+                                        Achat de smartphone :
+                                        <select bind:value={userInputs.smartphoneType} class="form-input">
+                                            <option value="">Aucun achat</option>
+                                            <option value="small">Petit modèle</option>
+                                            <option value="large">Grand modèle</option>
                                         </select>
                                     </label>
+
+                                    {#if userInputs.smartphoneType}
+                                        <label class="form-label">
+                                            État du smartphone :
+                                            <select bind:value={userInputs.smartphoneState} class="form-input">
+                                                <option value="new">Neuf</option>
+                                                <option value="used">Occasion</option>
+                                                <option value="old">Gardé depuis 3+ ans</option>
+                                            </select>
+                                        </label>
+                                    {/if}
+
+                                    <label class="form-label">
+                                        Temps passé sur les réseaux sociaux par jour (heures) :
+                                        <input 
+                                            type="number" 
+                                            bind:value={userInputs.socialHours} 
+                                            class="form-input"
+                                            min="0"
+                                            max="24"
+                                            step="0.5"
+                                            placeholder="0"
+                                        />
+                                    </label>
+                                    <p class="info-text">
+                                        Les valeurs seront automatiquement multipliées par 30 pour obtenir l'impact mensuel
+                                    </p>
+                                    <p class="info-text">
+                                        Les PC sont comptés dans la section logement et électroménagers (électronique)
+                                    </p>
                                 {/if}
 
-                                <label class="form-label">
-                                    Temps passé sur les réseaux sociaux par jour (heures) :
-                                    <input 
-                                        type="number" 
-                                        bind:value={userInputs.socialHours} 
-                                        class="form-input"
-                                        min="0"
-                                        max="24"
-                                        step="0.5"
-                                        placeholder="0"
-                                    />
-                                </label>
-                                <p class="info-text">
-                                    Les valeurs seront automatiquement multipliées par 30 pour obtenir l'impact mensuel
-                                </p>
-                                <p class="info-text">
-                                    Les PC sont comptés dans la section logement et électroménagers (électronique)
-                                </p>
-                            {/if}
-
-                            {#if $selectedCategoryStore === 'Consommation'}
-                                <label class="form-label">
-                                    Nombre de commandes Amazon :
-                                    <input 
-                                        type="number" 
-                                        bind:value={userInputs.amazonOrders} 
-                                        class="form-input"
-                                        min="0"
-                                        placeholder="0"
-                                    />
-                                </label>
-                                <label class="form-label">
-                                    Nombre d'achats Le Bon Coin :
-                                    <input 
-                                        type="number" 
-                                        bind:value={userInputs.leboncoinOrders} 
-                                        class="form-input"
-                                        min="0"
-                                        placeholder="0"
-                                    />
-                                </label>
-                                <label class="form-label">
-                                    Nombre d'achats artisanaux :
-                                    <input 
-                                        type="number" 
-                                        bind:value={userInputs.artisanatOrders} 
-                                        class="form-input"
-                                        min="0"
-                                        placeholder="0"
-                                    />
-                                </label>
-                                <label class="form-label">
-                                    Nombre d'achats en brocante :
-                                    <input 
-                                        type="number" 
-                                        bind:value={userInputs.brocanteItems} 
-                                        class="form-input"
-                                        min="0"
-                                        placeholder="0"
-                                    />
-                                </label>
-                                <label class="form-label">
-                                    Nombre d'achats chez les commerçants locaux :
-                                    <input 
-                                        type="number" 
-                                        bind:value={userInputs.localShopOrders} 
-                                        class="form-input"
-                                        min="0"
-                                        placeholder="0"
-                                    />
-                                </label>
-                                <p class="info-text">
-                                    Les achats alimentaires sont à compter dans la section Alimentation
-                                </p>
-                            {/if}
-                            
+                                {#if $selectedCategoryStore === 'Consommation'}
+                                    <label class="form-label">
+                                        Nombre de commandes Amazon :
+                                        <input 
+                                            type="number" 
+                                            bind:value={userInputs.amazonOrders} 
+                                            class="form-input"
+                                            min="0"
+                                            placeholder="0"
+                                        />
+                                    </label>
+                                    <label class="form-label">
+                                        Nombre d'achats Le Bon Coin :
+                                        <input 
+                                            type="number" 
+                                            bind:value={userInputs.leboncoinOrders} 
+                                            class="form-input"
+                                            min="0"
+                                            placeholder="0"
+                                        />
+                                    </label>
+                                    <label class="form-label">
+                                        Nombre d'achats artisanaux :
+                                        <input 
+                                            type="number" 
+                                            bind:value={userInputs.artisanatOrders} 
+                                            class="form-input"
+                                            min="0"
+                                            placeholder="0"
+                                        />
+                                    </label>
+                                    <label class="form-label">
+                                        Nombre d'achats en brocante :
+                                        <input 
+                                            type="number" 
+                                            bind:value={userInputs.brocanteItems} 
+                                            class="form-input"
+                                            min="0"
+                                            placeholder="0"
+                                        />
+                                    </label>
+                                    <label class="form-label">
+                                        Nombre d'achats chez les commerçants locaux :
+                                        <input 
+                                            type="number" 
+                                            bind:value={userInputs.localShopOrders} 
+                                            class="form-input"
+                                            min="0"
+                                            placeholder="0"
+                                        />
+                                    </label>
+                                    <p class="info-text">
+                                        Les achats alimentaires sont à compter dans la section Alimentation
+                                    </p>
+                                {/if}
+                                
     </div>
 
                     <button class="calculate-button" on:click={calculateEmissions}>
@@ -652,8 +649,8 @@
                                                             {new Date(month).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
                                                             {#if month === selectedMonth}
                                                                 <span class="active-month-indicator">Mois sélectionné</span>
-                                                            {/if}
-                                                        </span>
+                                {/if}
+                            </span>
                                                         <span class="month-value">
                                                             {monthlyTotals[month].toFixed(2)} kg CO2e
                                                         </span>
@@ -663,7 +660,7 @@
                                                         on:click={() => toggleMonthDetails(month)}
                                                     >
                                                         {expandedMonth === month ? 'Masquer détails' : 'Voir détails'}
-                                                    </button>
+                                    </button>
                                                 </div>
                                                 
                                                 <div class="progress-container">
@@ -704,12 +701,12 @@
                                                             </div>
                                                         </div>
                                                     </div>
-                                                {/if}
+                                {/if}
                                             </div>
                                         {/each}
-                                    </div>
-                                </div>
-                            {/each}
+                            </div>
+                        </div>
+                    {/each}
                         </div>
                     {/if}
                 </div>

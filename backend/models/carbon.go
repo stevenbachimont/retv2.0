@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type TransportMode struct {
 	ID     string  `json:"id"`
@@ -79,18 +82,12 @@ type CarbonFactors struct {
 	} `json:"Consommation"`
 }
 
-type User struct {
-	ID       string `json:"id"`
-	Email    string `json:"email" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
 type Result struct {
-	ID        string      `json:"id"`
-	UserID    string      `json:"user_id"`
-	Category  string      `json:"category"`
-	Value     float64     `json:"value"`
-	Inputs    interface{} `json:"inputs"`
-	Month     time.Time   `json:"month"`
-	CreatedAt time.Time   `json:"created_at"`
+	ID        string          `json:"id"`
+	UserID    string          `json:"user_id"`
+	Category  string          `json:"category"`
+	Value     float64         `json:"value"`
+	Inputs    json.RawMessage `json:"inputs"`
+	Month     time.Time       `json:"month"`
+	CreatedAt time.Time       `json:"created_at"`
 }
