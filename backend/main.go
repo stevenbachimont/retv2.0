@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtKey = []byte("votre_clé_secrète_ici") // En production, utilisez une vraie clé secrète
+var jwtKey = []byte("clé_secrète_ici")
 
 type Claims struct {
 	UserID string
@@ -234,10 +234,10 @@ func calculateCarbon(c *gin.Context) {
 
 	case "Numerique":
 		if googleSearches, ok := input.UserInputs["googleSearches"].(float64); ok {
-			result += (googleSearches * 365) * factors.Numerique.GoogleSearch
+			result += (googleSearches * 30) * factors.Numerique.GoogleSearch
 		}
 		if chatgptPrompts, ok := input.UserInputs["chatgptPrompts"].(float64); ok {
-			result += (chatgptPrompts * 365) * factors.Numerique.ChatGPT
+			result += (chatgptPrompts * 30) * factors.Numerique.ChatGPT
 		}
 		if smartphoneType, ok := input.UserInputs["smartphoneType"].(string); ok && smartphoneType != "" {
 			var baseEmission float64

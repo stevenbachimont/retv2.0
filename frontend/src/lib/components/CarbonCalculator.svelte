@@ -107,7 +107,7 @@
     // Calculer le total pour un mois donné
     function calculateMonthlyTotal(month: string) {
         if (!resultsByMonth[month]) return 0;
-        return Object.values(resultsByMonth[month]).reduce((sum, val) => sum + val, 0) + 1500; // +1500 pour Services_communs
+        return Object.values(resultsByMonth[month]).reduce((sum, val) => sum + val, 0) + (1500/12); // +125 pour Services_communs (1500/12)
     }
 
     // Mettre à jour les totaux quand les résultats changent
@@ -221,6 +221,8 @@
     // Fonction pour gérer l'affichage/masquage des détails
     function toggleMonthDetails(month: string) {
         expandedMonth = expandedMonth === month ? null : month;
+        // Mettre à jour le mois sélectionné
+        selectedMonth = month;
     }
 
     onMount(async () => {
@@ -299,6 +301,10 @@
 
     // Fonction pour calculer le total annuel
     function calculateYearlyTotal(year: string) {
+        const monthCount = Object.keys(resultsByMonth)
+            .filter(month => month.startsWith(year))
+            .length;
+        
         return Object.entries(monthlyTotals)
             .filter(([month]) => month.startsWith(year))
             .reduce((sum, [_, total]) => sum + total, 0);
@@ -306,7 +312,10 @@
 
     // Fonction pour obtenir les totaux par catégorie pour une année
     function getYearlyTotalsByCategory(year: string) {
-        const totals: Record<string, number> = {};
+        const totals: Record<string, number> = {
+            'Services_communs': 1500 // 1500 kg CO2e par an
+        };
+        
         Object.entries(resultsByMonth)
             .filter(([month]) => month.startsWith(year))
             .forEach(([_, monthData]) => {
@@ -336,15 +345,15 @@
 {#if $user}
     <div class="calculator-container" style="--color-intensity: {colorIntensity}">
         <div class="header">
-            <h2 class="title">Suivi mensuel de votre empreinte carbone</h2>
+            <h1 class="title">Suivi mensuel de votre empreinte carbone</h1>
             <button class="logout-button" on:click={handleLogout}>
                 Déconnexion
             </button>
         </div>
     <div class="calculator-card">
-        <h2 class="title">
-            Calculateur d'Empreinte Carbone Annuelle
-        </h2>
+        <h3 class="title">
+            Saisissez vos données :
+        </h3>
 
         {#if carbonData}
             <div class="form-section">
@@ -378,11 +387,11 @@
                     <div class="input-group">
                             {#if $selectedCategoryStore === 'Transports'}
                             <label class="form-label">
-                                Kilomètres en train par an :
+                                Kilomètres en train :
                                 <input type="number" bind:value={userInputs.trainKm} class="form-input" />
                             </label>
                             <label class="form-label">
-                                Kilomètres en avion par an :
+                                Kilomètres en avion :
                                 <input type="number" bind:value={userInputs.flightKm} class="form-input" />
                             </label>
                             <label class="form-label">
@@ -394,7 +403,7 @@
                                 </select>
                             </label>
                             <label class="form-label">
-                                Kilomètres en voiture par an :
+                                Kilomètres en voiture :
                                 <input type="number" bind:value={userInputs.carKm} class="form-input" />
                             </label>
                             <label class="form-label">
@@ -413,11 +422,11 @@
                                 <input type="number" bind:value={userInputs.homeSize} class="form-input" min="1" placeholder="50" />
                             </label>
                             <label class="form-label">
-                                Consommation électrique annuelle (kWh) :
+                                Consommation électrique mensuelle (kWh) :
                                 <input type="number" bind:value={userInputs.electricityKwh} class="form-input" />
                             </label>
                             <label class="form-label">
-                                Consommation de gaz annuelle (kWh) :
+                                Consommation de gaz mensuelle (kWh) :
                                 <input type="number" bind:value={userInputs.gasKwh} class="form-input" />
                             </label>
                             <label class="form-label">
@@ -439,15 +448,15 @@
 
                             {#if $selectedCategoryStore === 'Alimentation'}
                             <label class="form-label">
-                                Consommation annuelle de viande rouge (kg) :
+                                Consommation de viande rouge (kg) :
                                 <input type="number" bind:value={userInputs.redMeatKg} class="form-input" min="0" />
                             </label>
                             <label class="form-label">
-                                Consommation annuelle de viande blanche (kg) :
+                                Consommation de viande blanche (kg) :
                                 <input type="number" bind:value={userInputs.whiteMeatKg} class="form-input" min="0" />
                             </label>
                             <label class="form-label">
-                                Consommation annuelle de porc (kg) :
+                                Consommation de porc (kg) :
                                 <input type="number" bind:value={userInputs.porkKg} class="form-input" min="0" />
                             </label>
                             <label class="form-label">
@@ -470,11 +479,11 @@
 
                             {#if $selectedCategoryStore === 'Vetements'}
                             <label class="form-label">
-                                Nombre de grands vêtements achetés par an :
+                                Nombre de grands vêtements achetés :
                                 <input type="number" bind:value={userInputs.largeItems} class="form-input" min="0" />
                             </label>
                             <label class="form-label">
-                                Nombre de petits vêtements achetés par an :
+                                Nombre de petits vêtements achetés :
                                 <input type="number" bind:value={userInputs.smallItems} class="form-input" min="0" />
                             </label>
                             <label class="form-label">
@@ -509,7 +518,7 @@
                                 </label>
                                 
                                 <label class="form-label">
-                                    Achat de smartphone cette année :
+                                    Achat de smartphone :
                                     <select bind:value={userInputs.smartphoneType} class="form-input">
                                         <option value="">Aucun achat</option>
                                         <option value="small">Petit modèle</option>
@@ -541,7 +550,7 @@
                                     />
                                 </label>
                                 <p class="info-text">
-                                    Les valeurs seront automatiquement multipliées par 365 pour obtenir l'impact annuel
+                                    Les valeurs seront automatiquement multipliées par 30 pour obtenir l'impact mensuel
                                 </p>
                                 <p class="info-text">
                                     Les PC sont comptés dans la section logement et électroménagers (électronique)
@@ -550,7 +559,7 @@
 
                             {#if $selectedCategoryStore === 'Consommation'}
                                 <label class="form-label">
-                                    Nombre de commandes Amazon par an :
+                                    Nombre de commandes Amazon :
                                     <input 
                                         type="number" 
                                         bind:value={userInputs.amazonOrders} 
@@ -560,7 +569,7 @@
                                     />
                                 </label>
                                 <label class="form-label">
-                                    Nombre d'achats Le Bon Coin par an :
+                                    Nombre d'achats Le Bon Coin :
                                     <input 
                                         type="number" 
                                         bind:value={userInputs.leboncoinOrders} 
@@ -570,7 +579,7 @@
                                     />
                                 </label>
                                 <label class="form-label">
-                                    Nombre d'achats artisanaux par an :
+                                    Nombre d'achats artisanaux :
                                     <input 
                                         type="number" 
                                         bind:value={userInputs.artisanatOrders} 
@@ -580,7 +589,7 @@
                                     />
                                 </label>
                                 <label class="form-label">
-                                    Nombre d'achats en brocante par an :
+                                    Nombre d'achats en brocante :
                                     <input 
                                         type="number" 
                                         bind:value={userInputs.brocanteItems} 
@@ -590,7 +599,7 @@
                                     />
                                 </label>
                                 <label class="form-label">
-                                    Nombre d'achats chez les commerçants locaux par an :
+                                    Nombre d'achats chez les commerçants locaux :
                                     <input 
                                         type="number" 
                                         bind:value={userInputs.localShopOrders} 
@@ -623,18 +632,15 @@
                                         </span>
                                     </h3>
                                     <div class="year-progress-container">
-                                        {#each Object.entries(getYearlyTotalsByCategory(year)) as [category, value]}
+                                        {#each Object.entries(getYearlyTotalsByCategory(year))
+                                            .sort(([catA], [catB]) => catA === 'Services_communs' ? 1 : catB === 'Services_communs' ? -1 : 0) 
+                                            as [category, value]}
                                             <div 
                                                 class="progress-bar" 
                                                 style="--width: {(value / calculateYearlyTotal(year) * 100)}%; --color: {getCategoryColor(category)};"
                                                 title="{category.replace('_', ' ')}: {value.toFixed(2)} kg CO2e"
                                             ></div>
                                         {/each}
-                                        <div 
-                                            class="progress-bar"
-                                            style="--width: {(1500 * 12 / calculateYearlyTotal(year) * 100)}%; --color: {getCategoryColor('Services_communs')};"
-                                            title="Services communs: {(1500 * 12).toFixed(2)} kg CO2e"
-                                        ></div>
                                     </div>
 
                                     <div class="months-container">
@@ -661,7 +667,9 @@
                                                 </div>
                                                 
                                                 <div class="progress-container">
-                                                    {#each Object.entries(resultsByMonth[month] || {}) as [category, value]}
+                                                    {#each Object.entries(resultsByMonth[month] || {})
+                                                        .sort(([catA], [catB]) => catA === 'Services_communs' ? 1 : catB === 'Services_communs' ? -1 : 0)
+                                                        as [category, value]}
                                                         <div 
                                                             class="progress-bar" 
                                                             style="--width: {(value / monthlyTotals[month] * 100)}%; --color: {getCategoryColor(category)};"
@@ -670,8 +678,8 @@
                                                     {/each}
                                                     <div 
                                                         class="progress-bar"
-                                                        style="--width: {(1500 / monthlyTotals[month] * 100)}%; --color: {getCategoryColor('Services_communs')};"
-                                                        title="Services communs: 1500 kg CO2e"
+                                                        style="--width: {((1500/12) / monthlyTotals[month] * 100)}%; --color: {getCategoryColor('Services_communs')};"
+                                                        title="Services communs: 125 kg CO2e"
                                                     ></div>
                                                 </div>
                                                 
@@ -692,7 +700,7 @@
                                                                     <div class="color-indicator" style="background: {getCategoryColor('Services_communs')}"></div>
                                                                     <span>Services communs</span>
                                                                 </div>
-                                                                <span>1500.00 kg CO2e</span>
+                                                                <span>125.00 kg CO2e</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -713,7 +721,7 @@
 </div> 
 
 <style>
-    /* Animations optionnelles */
+  
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }

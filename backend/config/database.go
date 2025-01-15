@@ -15,7 +15,7 @@ const (
 )
 
 func InitDB() (*sql.DB, error) {
-	db, err := sql.Open("postgres", "user=postgres dbname=carbon_calculator sslmode=disable")
+	db, err := sql.Open("postgres", "user=postgres password=postgres dbname=carbon_calculator sslmode=disable")
 	if err != nil {
 		return nil, err
 	}
