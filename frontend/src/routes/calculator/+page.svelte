@@ -11,6 +11,5 @@
 </script>
 
 <div class="container">
-    <Navbar handleLogout={handleLogout} currentPath="/calculator" />
     <CarbonCalculator />
 </div> 
