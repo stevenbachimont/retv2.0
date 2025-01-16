@@ -1,8 +1,8 @@
 <script lang="ts">
     import { user } from '../stores';
+    import { page } from '$app/stores';
 
     export let handleLogout: () => void;
-    export let currentPath: string = '/calculator';
     let isMenuOpen = false;
 
     const routes = [
@@ -30,7 +30,7 @@
         {#each routes as route}
             <a 
                 href={route.path} 
-                class="nav-link {currentPath === route.path ? 'active' : ''}"
+                class="nav-link {$page.url.pathname === route.path ? 'active' : ''}"
                 on:click={() => isMenuOpen = false}
             >
                 <span class="nav-icon">{route.icon}</span>

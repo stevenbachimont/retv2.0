@@ -1,6 +1,5 @@
 <script>
     import { user } from '../../lib/stores';
-    import Navbar from '../../lib/components/Navbar.svelte';
     
     function handleLogout() {
         localStorage.removeItem('token');
@@ -52,8 +51,6 @@
 </script>
 
 <div class="container">
-    <Navbar {handleLogout} />
-    
     <div class="content">
         <h1>Comment utiliser le calculateur carbone ?</h1>
         

@@ -1,6 +1,5 @@
 <script lang="ts">
     import { user } from '../../lib/stores';
-    import Navbar from '../../lib/components/Navbar.svelte';
     import { onMount } from 'svelte';
     
     function handleLogout() {
@@ -118,10 +117,8 @@
 </script>
 
 <div class="container">
-    <Navbar {handleLogout} />
-    
     <div class="content">
-        <h1>Facilitateur d'amélioration</h1>
+        <h1>Facilitateur d'ambitions</h1>
         
         <div class="month-selector">
             <label for="month">Sélectionnez le mois à analyser :</label>
@@ -237,7 +234,7 @@
     .progress-bar {
         position: absolute;
         height: 100%;
-        width: var(--progress);
+        width: 100%;
         background: linear-gradient(
             to right, 
             #3498db 0%, 
@@ -254,14 +251,16 @@
         transform: translateY(-50%);
         color: white;
         font-weight: bold;
+        z-index: 2;
     }
 
     .threshold-marker {
         position: absolute;
         left: var(--position);
         height: 100%;
-        width: 2px;
+        width: 4px;
         background: #2c3e50;
+        z-index: 1;
     }
 
     .threshold-label {

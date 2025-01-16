@@ -23,17 +23,15 @@
                 body: JSON.stringify(formData),
             });
             
-            console.log("Response:", response);
-            const data = await response.json();
-            console.log("Data:", data);
+            const responseData = await response.json();
             
             if (response.ok) {
-                user.set(data.user);
-                localStorage.setItem('token', data.token);
-                window.location.reload();
+                user.set(responseData.user);
+                localStorage.setItem('token', responseData.token);
+                window.location.href = '/facilitator';
             } else {
-                error = data.error || 'Une erreur est survenue';
-                console.error('Erreur:', data.error);
+                error = responseData.error || 'Une erreur est survenue';
+                console.error('Erreur:', error);
             }
         } catch (error) {
             console.error('Erreur:', error);

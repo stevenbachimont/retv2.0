@@ -1,6 +1,5 @@
 <script>
     import CarbonCalculator from '../../lib/components/CarbonCalculator.svelte';
-    import Navbar from '../../lib/components/Navbar.svelte';
     import { user } from '../../lib/stores';
 
     function handleLogout() {
@@ -11,5 +10,6 @@
 </script>
 
 <div class="container">
+    
     <CarbonCalculator />
 </div> 

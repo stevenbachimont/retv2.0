@@ -1,35 +1,41 @@
-<script>
-    import Navbar from '../../lib/components/Navbar.svelte';
+<script lang="ts">
     import { user } from '../../lib/stores';
     
-    function handleLogout() {
-        localStorage.removeItem('token');
-        user.set(null);
-        window.location.href = '/';
-    }
 </script>
 
 <div class="container">
-    <Navbar {handleLogout} />
-    
     <div class="content">
         <h1>Mon Compte</h1>
         {#if $user}
-            <p>Email : {$user.email}</p>
-            <!-- Ajoutez ici d'autres informations du compte -->
+            <div class="user-info">
+                <p><strong>Pseudonyme:</strong> {$user.username}</p>
+                <p><strong>Email:</strong> {$user.email}</p>
+            </div>
         {/if}
     </div>
 </div>
 
 <style>
     .container {
-        padding: 2rem;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     }
-    
+
     .content {
-        background: white;
+        max-width: 800px;
+        margin: 0 auto;
         padding: 2rem;
-        border-radius: 0.5rem;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .user-info {
+        margin-top: 2rem;
+    }
+
+    h1 {
+        color: #2c3e50;
+        margin-bottom: 2rem;
     }
 </style> 

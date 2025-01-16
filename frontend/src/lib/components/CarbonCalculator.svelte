@@ -3,7 +3,6 @@
     import { user } from '../stores';
     import { writable } from 'svelte/store';
     import { slide } from 'svelte/transition';
-    import Navbar from './Navbar.svelte';
     
     interface CarbonData {
         Transports: {
@@ -345,12 +344,11 @@
 
 {#if $user}
     <div class="calculator-container" style="--color-intensity: {colorIntensity}">
-        <Navbar {handleLogout} />
-        
+        <h1>Calculateur de CO2</h1>
     <div class="calculator-card">
-            <h3 class="title">
-                Saisissez vos données :
-            </h3>
+            <h2 class="title">
+                Saisissez vos données mensuelles :
+            </h2>
 
         {#if carbonData}
             <div class="form-section">
@@ -724,6 +722,18 @@
         to { opacity: 1; transform: translateY(0); }
     }
 
+    h1 {
+        color: #2c3e50;
+        margin-bottom: 2rem;
+        text-align: center;
+    }   
+
+    h2 {
+        color: #2c3e50;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+
     .animate-fade-in {
         animation: fadeIn 0.3s ease-out forwards;
     }
@@ -911,6 +921,7 @@
         .category-select {
             max-width: 300px;
             margin: 0 auto;
+            margin-left: 0;
         }
 
         input[type="month"] {
