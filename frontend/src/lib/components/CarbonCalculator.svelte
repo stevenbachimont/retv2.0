@@ -346,9 +346,9 @@
     <div class="calculator-container" style="--color-intensity: {colorIntensity}">
         <h1>Calculateur de CO2</h1>
     <div class="calculator-card">
-            <h2 class="title">
+        <h2 class="title">
                 Saisissez vos données mensuelles :
-            </h2>
+        </h2>
 
         {#if carbonData}
             <div class="form-section">
