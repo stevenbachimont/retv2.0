@@ -1,85 +1,113 @@
 <script lang="ts">
     import { user } from '../stores';
     
-    let formData = {
-        email: '',
-        password: '',
-        username: ''
-    };
     let isLogin = true;
+    let username = '';
+    let email = '';
+    let password = '';
     let error = '';
 
     async function handleSubmit() {
-        error = '';
-        console.log("Submitting:", { ...formData, isLogin });
-        
-        const endpoint = isLogin ? '/api/login' : '/api/register';
         try {
-            const response = await fetch(`http://localhost:8080${endpoint}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-            
-            const responseData = await response.json();
-            
-            if (response.ok) {
-                user.set(responseData.user);
-                localStorage.setItem('token', responseData.token);
-                window.location.href = '/facilitator';
+            if (isLogin) {
+                const response = await fetch('http://localhost:8080/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username,
+                        password
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    user.set(data.user);
+                    localStorage.setItem('token', data.token);
+                } else {
+                    error = 'Identifiants incorrects';
+                }
             } else {
-                error = responseData.error || 'Une erreur est survenue';
-                console.error('Erreur:', error);
+                const response = await fetch('http://localhost:8080/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username,
+                        email,
+                        password
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    user.set(data.user);
+                    localStorage.setItem('token', data.token);
+                } else {
+                    error = 'Erreur lors de l\'inscription';
+                }
             }
-        } catch (error) {
-            console.error('Erreur:', error);
-            error = 'Erreur de connexion au serveur';
+        } catch (err) {
+            error = 'Erreur de connexion';
         }
     }
 </script>
 
 <div class="auth-container">
-    <h2>{isLogin ? 'Connexion' : 'Inscription'}</h2>
-    {#if error}
-        <div class="error">{error}</div>
-    {/if}
-    <form on:submit|preventDefault={handleSubmit}>
-        <input
-            type="email"
-            bind:value={formData.email}
-            placeholder="Email"
-            autocomplete="email"
-            required
-        />
-        <input
-            type="password"
-            bind:value={formData.password}
-            placeholder="Mot de passe"
-            autocomplete="current-password"
-            required
-        />
-        {#if !isLogin}
+    <div class="auth-card">
+        <h1>{isLogin ? 'Connexion' : 'Inscription'}</h1>
+        
+        {#if error}
+            <div class="error">{error}</div>
+        {/if}
+
+        <form on:submit|preventDefault={handleSubmit}>
             <div class="form-group">
                 <label for="username">Pseudonyme</label>
-                <input
-                    type="text"
-                    id="username"
-                    bind:value={formData.username}
+                <input 
+                    type="text" 
+                    id="username" 
+                    bind:value={username} 
                     required
-                    minlength="3"
-                    maxlength="50"
                 />
             </div>
-        {/if}
-        <button type="submit">
-            {isLogin ? 'Se connecter' : 'S\'inscrire'}
-        </button>
-    </form>
-    <button class="switch-button" on:click={() => isLogin = !isLogin}>
-        {isLogin ? 'Créer un compte' : 'Déjà un compte ?'}
-    </button>
+
+            {#if !isLogin}
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        bind:value={email} 
+                        required
+                    />
+                </div>
+            {/if}
+
+            <div class="form-group">
+                <label for="password">Mot de passe</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    bind:value={password} 
+                    required
+                />
+            </div>
+
+            <button type="submit">
+                {isLogin ? 'Se connecter' : 'S\'inscrire'}
+            </button>
+        </form>
+
+        <p class="toggle-mode">
+            {isLogin ? 'Pas encore de compte ?' : 'Déjà un compte ?'}
+            <button class="link-button" on:click={() => isLogin = !isLogin}>
+                {isLogin ? 'S\'inscrire' : 'Se connecter'}
+            </button>
+        </p>
+    </div>
 </div>
 
 <style>
@@ -124,5 +152,19 @@
         color: red;
         margin-bottom: 1rem;
         text-align: center;
+    }
+
+    .link-button {
+        background: none;
+        border: none;
+        color: #3498db;
+        cursor: pointer;
+        padding: 0;
+        font: inherit;
+        text-decoration: underline;
+    }
+
+    .link-button:hover {
+        color: #2980b9;
     }
 </style> 

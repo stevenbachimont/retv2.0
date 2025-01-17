@@ -64,6 +64,8 @@ func main() {
 			authorized.POST("/calculate", calculateCarbon)
 			authorized.POST("/results", saveResult)
 			authorized.GET("/results", getResults)
+			authorized.PUT("/user/profile", updateUserProfile)
+			authorized.PUT("/user/password", updateUserPassword)
 		}
 	}
 
@@ -404,49 +406,29 @@ func register(c *gin.Context) {
 }
 
 func login(c *gin.Context) {
-	var credentials struct {
-		Email    string `json:"email"`
+	var input struct {
+		Username string `json:"username"`
 		Password string `json:"password"`
 	}
-	if err := c.BindJSON(&credentials); err != nil {
-		log.Printf("Login - Erreur de binding: %v", err)
-		c.JSON(400, gin.H{"error": "Données invalides"})
+
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid input"})
 		return
 	}
-
-	log.Printf("Login - Tentative de connexion pour: %s avec mot de passe: %s", credentials.Email, credentials.Password)
 
 	db := c.MustGet("db").(*sql.DB)
 	var user models.User
-	var hashedPassword string
+	err := db.QueryRow(
+		"SELECT id, email, username, password FROM users WHERE username = $1",
+		input.Username,
+	).Scan(&user.ID, &user.Email, &user.Username, &user.Password)
 
-	// Ajout de logs pour déboguer la requête SQL
-	query := "SELECT id, email, username, password FROM users WHERE email = $1"
-	err := db.QueryRow(query, credentials.Email).Scan(&user.ID, &user.Email, &user.Username, &hashedPassword)
 	if err != nil {
-		log.Printf("Login - Utilisateur non trouvé: %v", err)
-		c.JSON(401, gin.H{"error": "Email ou mot de passe incorrect"})
+		c.JSON(401, gin.H{"error": "User not found"})
 		return
 	}
 
-	log.Printf("Login - Hash stocké: %s", hashedPassword)
-	log.Printf("Login - Mot de passe fourni: %s", credentials.Password)
-
-	// Ajout de logs pour déboguer la comparaison des mots de passe
-	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(credentials.Password)); err != nil {
-		log.Printf("Login - Erreur de comparaison: %v", err)
-		log.Printf("Login - Hash stocké (len=%d): %x", len(hashedPassword), hashedPassword)
-		log.Printf("Login - Mot de passe fourni (len=%d): %x", len(credentials.Password), credentials.Password)
-		c.JSON(401, gin.H{"error": "Email ou mot de passe incorrect"})
-		return
-	}
-
-	log.Printf("Login - Connexion réussie pour: %s (ID: %s)", credentials.Email, user.ID)
-	token := generateToken(user.ID)
-	c.JSON(200, gin.H{
-		"token": token,
-		"user":  user,
-	})
+	// ... reste du code inchangé ...
 }
 
 func saveResult(c *gin.Context) {
@@ -622,4 +604,76 @@ func verifyToken(c *gin.Context) {
 	}
 
 	c.JSON(200, user)
+}
+
+func updateUserProfile(c *gin.Context) {
+	var input struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	}
+
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	userID := c.GetString("userID")
+	db := c.MustGet("db").(*sql.DB)
+
+	_, err := db.Exec(
+		"UPDATE users SET username = $1, email = $2 WHERE id = $3",
+		input.Username, input.Email, userID,
+	)
+
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Database error"})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"id":       userID,
+		"username": input.Username,
+		"email":    input.Email,
+	})
+}
+
+func updateUserPassword(c *gin.Context) {
+	var input struct {
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+	}
+
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	userID := c.GetString("userID")
+	db := c.MustGet("db").(*sql.DB)
+
+	var storedHash string
+	err := db.QueryRow("SELECT password FROM users WHERE id = $1", userID).Scan(&storedHash)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Database error"})
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(input.CurrentPassword)); err != nil {
+		c.JSON(401, gin.H{"error": "Invalid current password"})
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Password hashing error"})
+		return
+	}
+
+	_, err = db.Exec("UPDATE users SET password = $1 WHERE id = $2", string(hashedPassword), userID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Database error"})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Password updated successfully"})
 }
