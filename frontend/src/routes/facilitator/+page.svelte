@@ -17,15 +17,29 @@
             action: string;
             impact: string;
         }>;
+        isExceeding: boolean;
     }
 
-    let results = {};
+    interface ResultsByMonth {
+        [month: string]: {
+            [category: string]: number;
+        };
+    }
+
+    interface Result {
+        month: string;
+        category: string;
+        value: number;
+    }
+
+    let results: ResultsByMonth = {};
     let recommendations: Recommendation[] = [];
     let selectedMonth = new Date().toISOString().slice(0, 7);
     let isLoading = true;
 
-    // Seuils d'émission mensuels par catégorie (en kg CO2)
-    const thresholds = {
+    type Category = 'Transports' | 'Logement_electromenagers' | 'Alimentation' | 'Vetements' | 'Numerique' | 'Consommation';
+
+    const thresholds: Record<Category, number> = {
         Transports: 200,
         Logement_electromenagers: 300,
         Alimentation: 150,
@@ -48,6 +62,7 @@
         ],
         Alimentation: [
             { action: "Réduire la viande rouge", impact: "- 30 kg CO2/mois" },
+            { action: "Revaloriser votre caca", impact: "- 60 kg CO2/mois" },
             { action: "Privilégier le local", impact: "- 20% sur l'alimentation" },
             { action: "Éviter le gaspillage", impact: "- 15% sur l'alimentation" }
         ],
@@ -67,14 +82,17 @@
 
     async function loadResults() {
         try {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
             const response = await fetch('http://localhost:8080/api/results', {
                 headers: {
-                    'Authorization': localStorage.getItem('token')
+                    'Authorization': token
                 }
             });
             if (response.ok) {
                 const data = await response.json();
-                results = data.reduce((acc, result) => {
+                results = data.reduce((acc: ResultsByMonth, result: Result) => {
                     const month = new Date(result.month).toISOString().slice(0, 7);
                     if (!acc[month]) acc[month] = {};
                     acc[month][result.category] = result.value;
@@ -92,23 +110,28 @@
         recommendations = [];
         const monthData = results[selectedMonth] || {};
 
-        Object.entries(monthData).forEach(([category, value]) => {
-            if (value > thresholds[category]) {
-                const excess = ((value - thresholds[category]) / thresholds[category] * 100).toFixed(0);
-                const improvement = improvements[category];
-                recommendations.push({
-                    category,
-                    excess: `+${excess}%`,
-                    value: Math.round(value),
-                    threshold: thresholds[category],
-                    actions: improvement
-                });
-            }
+        // Traiter toutes les catégories
+        Object.keys(thresholds).forEach((category) => {
+            const typedCategory = category as Category;
+            const value = monthData[category] || 0;
+            const excess = ((value - thresholds[typedCategory]) / thresholds[typedCategory] * 100).toFixed(0);
+            
+            recommendations.push({
+                category,
+                excess: value > thresholds[typedCategory] ? `+${excess}%` : `-${Math.abs(Number(excess))}%`,
+                value: Math.round(value),
+                threshold: thresholds[typedCategory],
+                actions: improvements[typedCategory],
+                isExceeding: value > thresholds[typedCategory]
+            });
         });
 
-        recommendations.sort((a, b) => 
-            (a.value / a.threshold) - (b.value / b.threshold)
-        ).reverse();
+        // Trier : d'abord les dépassements, puis par ratio valeur/seuil
+        recommendations.sort((a, b) => {
+            if (a.isExceeding && !b.isExceeding) return -1;
+            if (!a.isExceeding && b.isExceeding) return 1;
+            return (b.value / b.threshold) - (a.value / a.threshold);
+        });
     }
 
     $: selectedMonth && analyzeResults();
@@ -140,25 +163,35 @@
         {:else}
             <div class="recommendations">
                 {#each recommendations as rec}
-                    <div class="recommendation-card">
+                    <div class="recommendation-card" class:exceeding={rec.isExceeding}>
                         <div class="card-header">
                             <h3>{rec.category.replace('_', ' ')}</h3>
-                            <span class="excess">{rec.excess}</span>
+                            <span class="excess" class:positive={!rec.isExceeding}>{rec.excess}</span>
                         </div>
                         
                         <div class="progress-container">
                             <div class="progress-bar" 
-                                 style="--progress: {Math.min((rec.value / (rec.value * 1.2)) * 100, 100)}%">
+                                 style="--progress: {
+                                     rec.isExceeding 
+                                         ? Math.min((rec.value / (rec.value * 1.2)) * 100, 100)
+                                         : Math.min((rec.value / rec.threshold * 100), 100)
+                                 }%"
+                                 class:good={!rec.isExceeding}>
+                                <div class="progress-fill" style="width: var(--progress)"></div>
                                 <span class="value">{rec.value} kg CO2</span>
                             </div>
                             <div class="threshold-marker" 
-                                 style="--position: {(rec.threshold / rec.value * 100)}%">
+                                 style="--position: {
+                                     rec.isExceeding
+                                         ? (rec.threshold / rec.value * 100)
+                                         : '100'
+                                 }%">
                                 <span class="threshold-label">Seuil : {rec.threshold} kg CO2</span>
                             </div>
                         </div>
 
                         <div class="actions">
-                            <h4>Actions recommandées :</h4>
+                            <h4>{rec.isExceeding ? 'Actions recommandées :' : 'Actions pour maintenir :'}</h4>
                             {#each rec.actions as action}
                                 <div class="action-item">
                                     <span class="action-text">{action.action}</span>
@@ -209,6 +242,11 @@
         padding: 2rem;
         margin-bottom: 2rem;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border: 2px solid #3498db;
+    }
+
+    .recommendation-card.exceeding {
+        border-color: #e74c3c;
     }
 
     .card-header {
@@ -223,6 +261,10 @@
         font-weight: bold;
     }
 
+    .excess.positive {
+        color: #27ae60;
+    }
+
     .progress-container {
         position: relative;
         height: 2rem;
@@ -235,6 +277,13 @@
         position: absolute;
         height: 100%;
         width: 100%;
+        border-radius: 1rem;
+        background: #888787;
+    }
+
+    .progress-fill {
+        position: absolute;
+        height: 100%;
         background: linear-gradient(
             to right, 
             #3498db 0%, 
@@ -242,6 +291,10 @@
         );
         border-radius: 1rem;
         transition: width 0.3s ease;
+    }
+
+    .good .progress-fill {
+        background: linear-gradient(to right, #27ae60 0%, #3498db 100%);
     }
 
     .value {

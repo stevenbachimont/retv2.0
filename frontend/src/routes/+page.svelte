@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import CarbonCalculator from '../lib/components/CarbonCalculator.svelte';
+    import CompletCalculator from '../lib/components/CompletCalculator.svelte';
     import Auth from '../lib/components/Auth.svelte';
     import { user } from '../lib/stores';
 
