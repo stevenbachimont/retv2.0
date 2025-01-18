@@ -1,56 +1,44 @@
 <script lang="ts">
     import { user } from '../stores';
     
+    let formData = {
+        username: '',
+        email: '',
+        password: ''
+    };
     let isLogin = true;
-    let username = '';
-    let email = '';
-    let password = '';
     let error = '';
 
     async function handleSubmit() {
+        error = '';
+        
+        const endpoint = isLogin ? '/api/login' : '/api/register';
         try {
-            if (isLogin) {
-                const response = await fetch('http://localhost:8080/api/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        username,
-                        password
-                    })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    user.set(data.user);
-                    localStorage.setItem('token', data.token);
-                } else {
-                    error = 'Identifiants incorrects';
-                }
+            const response = await fetch(`http://localhost:8080${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: formData.username,
+                    password: formData.password,
+                    ...(isLogin ? {} : { email: formData.email })
+                }),
+            });
+            
+            const responseData = await response.json();
+            
+            if (response.ok) {
+                user.set(responseData.user);
+                localStorage.setItem('token', responseData.token);
+                window.location.href = '/explanations';
             } else {
-                const response = await fetch('http://localhost:8080/api/register', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        username,
-                        email,
-                        password
-                    })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    user.set(data.user);
-                    localStorage.setItem('token', data.token);
-                } else {
-                    error = 'Erreur lors de l\'inscription';
-                }
+                error = responseData.error || 'Une erreur est survenue';
+                console.error('Erreur:', error);
             }
-        } catch (err) {
-            error = 'Erreur de connexion';
+        } catch (error) {
+            console.error('Erreur:', error);
+            error = 'Erreur de connexion au serveur';
         }
     }
 </script>
@@ -69,7 +57,7 @@
                 <input 
                     type="text" 
                     id="username" 
-                    bind:value={username} 
+                    bind:value={formData.username} 
                     required
                 />
             </div>
@@ -80,7 +68,7 @@
                     <input 
                         type="email" 
                         id="email" 
-                        bind:value={email} 
+                        bind:value={formData.email} 
                         required
                     />
                 </div>
@@ -91,7 +79,7 @@
                 <input 
                     type="password" 
                     id="password" 
-                    bind:value={password} 
+                    bind:value={formData.password} 
                     required
                 />
             </div>

@@ -56,6 +56,8 @@ func main() {
 		api.POST("/register", register)
 		api.POST("/login", login)
 		api.GET("/verify", verifyToken)
+		api.DELETE("/users", deleteAllUsers)
+		api.GET("/users", getAllUsers)
 
 		// Routes protégées
 		authorized := api.Group("")
@@ -136,7 +138,13 @@ func calculateCarbon(c *gin.Context) {
 			result += trainKm * factors.Transports.Train
 		}
 		if flightKm, ok := input.UserInputs["flightKm"].(float64); ok {
-			result += flightKm * factors.Transports.Flight
+			flightFactor := factors.Transports.Flight
+			if flightType, ok := input.UserInputs["flightType"].(string); ok {
+				if flightType == "domestic" {
+					flightFactor *= 0.85
+				}
+			}
+			result += flightKm * flightFactor
 		}
 		if carKm, ok := input.UserInputs["carKm"].(float64); ok {
 			if carType, ok := input.UserInputs["carType"].(string); ok {
@@ -428,7 +436,23 @@ func login(c *gin.Context) {
 		return
 	}
 
-	// ... reste du code inchangé ...
+	// Vérifier le mot de passe
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
+		c.JSON(401, gin.H{"error": "Invalid password"})
+		return
+	}
+
+	// Générer un nouveau token
+	token := generateToken(user.ID)
+
+	c.JSON(200, gin.H{
+		"token": token,
+		"user": gin.H{
+			"id":       user.ID,
+			"email":    user.Email,
+			"username": user.Username,
+		},
+	})
 }
 
 func saveResult(c *gin.Context) {
@@ -676,4 +700,39 @@ func updateUserPassword(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"message": "Password updated successfully"})
+}
+
+func deleteAllUsers(c *gin.Context) {
+	db := c.MustGet("db").(*sql.DB)
+	_, err := db.Exec("DELETE FROM users")
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Impossible de supprimer les utilisateurs"})
+		return
+	}
+	c.JSON(200, gin.H{"message": "Tous les utilisateurs ont été supprimés"})
+}
+
+func getAllUsers(c *gin.Context) {
+	db := c.MustGet("db").(*sql.DB)
+	rows, err := db.Query("SELECT id, email, username FROM users")
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Impossible de récupérer les utilisateurs"})
+		return
+	}
+	defer rows.Close()
+
+	var users []gin.H
+	for rows.Next() {
+		var id, email, username string
+		if err := rows.Scan(&id, &email, &username); err != nil {
+			continue
+		}
+		users = append(users, gin.H{
+			"id":       id,
+			"email":    email,
+			"username": username,
+		})
+	}
+
+	c.JSON(200, users)
 }

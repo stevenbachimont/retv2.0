@@ -80,6 +80,15 @@ type CarbonFactors struct {
 			LocalShops float64 `json:"localShops"`
 		} `json:"commerce"`
 	} `json:"Consommation"`
+	SportLoisirs SportLoisirsFactors `json:"Sport_loisirs"`
+}
+
+type SportLoisirsFactors struct {
+	Piscine        float64 `json:"piscine"`
+	Ski            float64 `json:"ski"`
+	SportMecanique float64 `json:"sportMecanique"`
+	SalleDeSport   float64 `json:"salleDeSport"`
+	SportPleinAir  float64 `json:"sportPleinAir"`
 }
 
 type Result struct {

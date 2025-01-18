@@ -382,14 +382,21 @@
                     <div class="input-group">
                                 {#if $selectedCategoryStore === 'Transports'}
                             <label class="form-label">
-                                    Kilomètres en train :
-                                <input type="number" bind:value={userInputs.trainKm} class="form-input" />
-                            </label>
+                                    Type de vol :
+                                    <select bind:value={userInputs.flightType} class="form-input">
+                                        <option value="domestic">Vol intérieur</option>
+                                        <option value="international">Vol international</option>
+                                    </select>
+                                </label>
                             <label class="form-label">
                                     Kilomètres en avion :
                                 <input type="number" bind:value={userInputs.flightKm} class="form-input" />
                             </label>
                             <label class="form-label">
+                                <label class="form-label">
+                                    Kilomètres en train :
+                                <input type="number" bind:value={userInputs.trainKm} class="form-input" />
+                            </label>
                                 Type de voiture :
                                 <select bind:value={userInputs.carType} class="form-input">
                                     <option value="small">Petite</option>
