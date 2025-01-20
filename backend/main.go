@@ -85,51 +85,7 @@ func calculateCarbon(c *gin.Context) {
 		return
 	}
 
-	factors := models.CarbonFactors{}
-
-	factors.Transports.Train = 0.014
-	factors.Transports.Flight = 0.285
-	factors.Transports.Car.Small = 0.1
-	factors.Transports.Car.Medium = 0.2
-	factors.Transports.Car.Big = 0.3
-
-	factors.LogementElectromenagers.Electricity = 0.57
-	factors.LogementElectromenagers.Gas = 0.2
-	factors.LogementElectromenagers.Apartment = 15
-	factors.LogementElectromenagers.House = 20
-	factors.LogementElectromenagers.Appliance = 0.5
-	factors.LogementElectromenagers.Electronic = 0.3
-
-	factors.Alimentation.RedMeat = 27
-	factors.Alimentation.WhiteMeat = 6.9
-	factors.Alimentation.Pork = 7.2
-	factors.Alimentation.BulkFoodPurchase.None = 1
-	factors.Alimentation.BulkFoodPurchase.Partial = 0.9
-	factors.Alimentation.BulkFoodPurchase.Total = 0.8
-
-	factors.Alimentation.ShortCircuit.None = 1.0
-	factors.Alimentation.ShortCircuit.Partial = 0.9
-	factors.Alimentation.ShortCircuit.Majority = 0.8
-
-	factors.Vetements.Large = 15
-	factors.Vetements.Small = 10
-	factors.Vetements.Madein.France = 1
-	factors.Vetements.Madein.Autre = 1.2
-
-	factors.Numerique.GoogleSearch = 0.0002
-	factors.Numerique.ChatGPT = 0.000382
-	factors.Numerique.SocialMedia = 0.000380
-	factors.Numerique.Smartphone.Small = 35
-	factors.Numerique.Smartphone.Large = 75
-	factors.Numerique.Smartphone.Used = 0.5
-	factors.Numerique.Smartphone.Old = 0.5
-
-	factors.Consommation.Ecommerce.Amazon = 0.25
-	factors.Consommation.Ecommerce.LeBonCoin = 0.05
-	factors.Consommation.Ecommerce.Artisanat = 0.1
-	factors.Consommation.Commerce.Brocante = 0.03
-	factors.Consommation.Commerce.LocalShops = 0.08
-
+	factors := getDefaultFactors()
 	var result float64
 
 	switch input.Category {
@@ -289,6 +245,23 @@ func calculateCarbon(c *gin.Context) {
 		if localShopOrders, ok := input.UserInputs["localShopOrders"].(float64); ok {
 			result += localShopOrders * factors.Consommation.Commerce.LocalShops
 		}
+
+	case "Sport_loisirs":
+		if piscine, ok := input.UserInputs["piscine"].(float64); ok {
+			result += piscine * factors.SportLoisirs.Piscine
+		}
+		if skiDays, ok := input.UserInputs["skiDays"].(float64); ok {
+			result += skiDays * factors.SportLoisirs.Ski
+		}
+		if sportMecaniqueHours, ok := input.UserInputs["sportMecaniqueHours"].(float64); ok {
+			result += sportMecaniqueHours * factors.SportLoisirs.SportMecanique
+		}
+		if salleDeSport, ok := input.UserInputs["salleDeSport"].(float64); ok {
+			result += salleDeSport * factors.SportLoisirs.SalleDeSport
+		}
+		if sportPleinAir, ok := input.UserInputs["sportPleinAir"].(float64); ok {
+			result += sportPleinAir * factors.SportLoisirs.SportPleinAir
+		}
 	}
 
 	c.JSON(200, gin.H{
@@ -297,7 +270,7 @@ func calculateCarbon(c *gin.Context) {
 	})
 }
 
-func getCarbonFactors(c *gin.Context) {
+func getDefaultFactors() models.CarbonFactors {
 	factors := models.CarbonFactors{}
 
 	factors.Transports.Train = 0.014
@@ -306,7 +279,7 @@ func getCarbonFactors(c *gin.Context) {
 	factors.Transports.Car.Medium = 0.2
 	factors.Transports.Car.Big = 0.3
 
-	factors.LogementElectromenagers.Electricity = 0.4
+	factors.LogementElectromenagers.Electricity = 0.57
 	factors.LogementElectromenagers.Gas = 0.2
 	factors.LogementElectromenagers.Apartment = 15
 	factors.LogementElectromenagers.House = 20
@@ -343,6 +316,17 @@ func getCarbonFactors(c *gin.Context) {
 	factors.Consommation.Commerce.Brocante = 0.03
 	factors.Consommation.Commerce.LocalShops = 0.08
 
+	factors.SportLoisirs.Piscine = 1
+	factors.SportLoisirs.Ski = 48.9
+	factors.SportLoisirs.SportMecanique = 10.0
+	factors.SportLoisirs.SalleDeSport = 1
+	factors.SportLoisirs.SportPleinAir = 0.0001
+
+	return factors
+}
+
+func getCarbonFactors(c *gin.Context) {
+	factors := getDefaultFactors()
 	c.JSON(200, factors)
 }
 
